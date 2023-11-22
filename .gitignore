@@ -1,12 +1,20 @@
-# Misc
+# misc
 .idea/
 .vscode/
+/.eslintcache
+.DS_Store
 
-# Local data
+# Build configs
+/.env
+
+# Builds
 /lib
 
 # Dependency directories
-node_modules/
+/node_modules
+jspm_packages/
+/.pnp
+.pnp.js
 
 # Optional npm cache directory
 .npm

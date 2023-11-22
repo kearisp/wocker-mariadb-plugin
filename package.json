@@ -1,0 +1,35 @@
+{
+    "name": "@wocker/mariadb-plugin",
+    "version": "1.0.0",
+    "author": "Kris Papercut <krispcut@gmai.com>",
+    "description": "Wocker mariadb plugin",
+    "license": "MIT",
+    "main": "lib/index.js",
+    "types": "lib/index.d.ts",
+    "keywords": [
+        "wocker",
+        "plugin"
+    ],
+    "homepage": "https://kearisp.github.io/wocker-docs/plugins/mariadb",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/kearisp/wocker-mariadb-plugin.git"
+    },
+    "bugs": {
+        "url": "https://github.com/kearisp/wocker-mariadb-plugin/issues"
+    },
+    "scripts": {
+        "prepare": "npm run build",
+        "watch": "tsc -w",
+        "build": "tsc",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "dependencies": {
+        "@wocker/core": "^1.0.4",
+        "@wocker/utils": "^1.0.1",
+        "date-fns": "^2.30.0"
+    },
+    "devDependencies": {
+        "typescript": "^5.2.2"
+    }
+}
