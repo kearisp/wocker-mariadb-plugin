@@ -287,7 +287,7 @@ export class MariadbPlugin extends Plugin {
         }
 
         const exec = await container.exec({
-            Cmd: ["mysql", `-uroot`, `-p${await this.getPassword()}`, database],
+            Cmd: ["mysql", `-uroot`, `-p${await this.getPassword()}`, database as string],
             AttachStdin: true,
             AttachStdout: true,
             AttachStderr: true,
