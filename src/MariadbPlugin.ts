@@ -1,11 +1,13 @@
 import {
     Injectable,
     Plugin,
-    AppConfigService,
-    DockerService,
     Cli,
     FSManager
 } from "@wocker/core";
+import {
+    AppConfigService,
+    DockerService
+} from "@wocker/ws";
 import {demuxOutput, promptConfirm, promptSelect, promptText} from "@wocker/utils";
 import * as Path from "path";
 import dateFormat from "date-fns/format";
