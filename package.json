@@ -1,6 +1,6 @@
 {
     "name": "@wocker/mariadb-plugin",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "author": "Kris Papercut <krispcut@gmai.com>",
     "description": "Wocker mariadb plugin",
     "license": "MIT",
@@ -27,9 +27,14 @@
     "dependencies": {
         "@wocker/core": "^1.0.4",
         "@wocker/utils": "^1.0.1",
-        "date-fns": "^2.30.0"
+        "date-fns": "^2.30.0",
+        "path": "^0.12.7"
     },
     "devDependencies": {
+        "@types/node": "^20.11.19",
         "typescript": "^5.2.2"
+    },
+    "peerDependencies": {
+        "@wocker/ws": "^1.0.3"
     }
 }

@@ -1,11 +1,13 @@
 import {
     Injectable,
-    Plugin,
-    AppConfigService,
-    DockerService,
     Cli,
     FSManager
 } from "@wocker/core";
+import {
+    Plugin,
+    AppConfigService,
+    DockerService
+} from "@wocker/ws";
 import {demuxOutput, promptConfirm, promptSelect, promptText} from "@wocker/utils";
 import * as Path from "path";
 import dateFormat from "date-fns/format";
@@ -29,7 +31,7 @@ export class MariadbPlugin extends Plugin {
         protected appConfigService: AppConfigService,
         protected dockerService: DockerService
     ) {
-        super();
+        super("mariadb");
 
         this.dbDir = this.appConfigService.dataPath("db/mariadb");
         this.fs = new FSManager(
@@ -103,7 +105,7 @@ export class MariadbPlugin extends Plugin {
         return await new Promise((resolve, reject) => {
             let result = "";
 
-            stream.on("data", (data) => {
+            stream.on("data", (data: any) => {
                 result += demuxOutput(data).toString();
             });
 
@@ -111,7 +113,7 @@ export class MariadbPlugin extends Plugin {
                 resolve(result);
             });
 
-            stream.on("error", (err) => {
+            stream.on("error", (err: Error) => {
                 reject(err);
             });
         });
@@ -287,7 +289,7 @@ export class MariadbPlugin extends Plugin {
         }
 
         const exec = await container.exec({
-            Cmd: ["mysql", `-uroot`, `-p${await this.getPassword()}`, database],
+            Cmd: ["mysql", `-uroot`, `-p${await this.getPassword()}`, database as string],
             AttachStdin: true,
             AttachStdout: true,
             AttachStderr: true,
@@ -416,7 +418,7 @@ export class MariadbPlugin extends Plugin {
         const file = this.fs.createWriteStream(`dump/${database}/${filename}.sql`);
 
         await new Promise((resolve, reject) => {
-            stream.on("data", (data) => {
+            stream.on("data", (data: any) => {
                 file.write(demuxOutput(data));
             });
 
@@ -479,7 +481,7 @@ export class MariadbPlugin extends Plugin {
 
             file.on("end", resolve);
 
-            stream.on("error", (err) => {
+            stream.on("error", (err: Error) => {
                 file.close();
 
                 reject(err);
