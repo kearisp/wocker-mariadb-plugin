@@ -10,6 +10,10 @@
 npm i -g @wocker/ws
 ```
 
+```shell
+ws plugin add mariadb
+```
+
 
 ### Completion
 
