@@ -1,10 +1,10 @@
 import {
     Injectable,
-    Plugin,
     Cli,
     FSManager
 } from "@wocker/core";
 import {
+    Plugin,
     AppConfigService,
     DockerService
 } from "@wocker/ws";
@@ -31,7 +31,7 @@ export class MariadbPlugin extends Plugin {
         protected appConfigService: AppConfigService,
         protected dockerService: DockerService
     ) {
-        super();
+        super("mariadb");
 
         this.dbDir = this.appConfigService.dataPath("db/mariadb");
         this.fs = new FSManager(
