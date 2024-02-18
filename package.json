@@ -27,7 +27,8 @@
     "dependencies": {
         "@wocker/core": "^1.0.4",
         "@wocker/utils": "^1.0.1",
-        "date-fns": "^2.30.0"
+        "date-fns": "^2.30.0",
+        "path": "^0.12.7"
     },
     "devDependencies": {
         "typescript": "^5.2.2"
