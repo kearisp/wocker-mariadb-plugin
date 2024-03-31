@@ -1,8 +1,8 @@
 {
     "name": "@wocker/mariadb-plugin",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "author": "Kris Papercut <krispcut@gmai.com>",
-    "description": "Wocker mariadb plugin",
+    "description": "Mariadb plugin for wocker",
     "license": "MIT",
     "main": "lib/index.js",
     "types": "lib/index.d.ts",
@@ -25,16 +25,13 @@
         "test": "echo \"Error: no test specified\" && exit 1"
     },
     "dependencies": {
-        "@wocker/core": "^1.0.4",
-        "@wocker/utils": "^1.0.1",
+        "@wocker/core": "^1.0.8",
+        "@wocker/utils": "^1.0.3",
         "date-fns": "^2.30.0",
         "path": "^0.12.7"
     },
     "devDependencies": {
         "@types/node": "^20.11.19",
-        "typescript": "^5.2.2"
-    },
-    "peerDependencies": {
-        "@wocker/ws": "^1.0.3"
+        "typescript": "^5.4.3"
     }
 }
