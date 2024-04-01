@@ -637,21 +637,9 @@ export class MariadbService {
         stream.pipe(process.stdout);
     }
 
-    public async exec(name?: string) {
-        const config = await this.getConfig();
-
-        const service = name
-            ? config.getService(name)
-            : config.getDefaultService()
-
-        if(!service) {
-            //
-        }
-    }
-
     public async getConfig(): Promise<Config> {
         let data: PickProperties<Config> = !existsSync(this.pluginConfigService.dataPath(this.configPath))
-            ? {services: {}}
+            ? {services: []}
             : await this.pluginConfigService.readJSON(this.configPath);
 
         return new class extends Config {

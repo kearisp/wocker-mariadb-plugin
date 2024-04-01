@@ -1,14 +1,11 @@
-import {
-    Module,
-    PluginConfigService
-} from "@wocker/core";
+import {Plugin, PluginConfigService} from "@wocker/core";
 
 import {MariadbController} from "./controllers/MariadbController";
 import {MariadbService} from "./services/MariadbService";
 import {DumpService} from "./services/DumpService";
 
 
-@Module({
+@Plugin({
     name: "mariadb",
     controllers: [
         MariadbController
@@ -19,4 +16,4 @@ import {DumpService} from "./services/DumpService";
         DumpService
     ]
 })
-export default class MariadbModule {}
+export default class MariadbPlugin {}
