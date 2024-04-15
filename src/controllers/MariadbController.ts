@@ -179,6 +179,12 @@ export class MariadbController {
         await this.mariadbService.restore(service, database, filename);
     }
 
+    @Command("mariadb:ls")
+    @Command("mariadb:list")
+    public async list() {
+        return this.mariadbService.list();
+    }
+
     @Completion("service")
     public async getServices() {
         return this.mariadbService.getServices();

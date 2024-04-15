@@ -9,6 +9,7 @@ import {
 import {demuxOutput, promptSelect, promptText} from "@wocker/utils";
 import {existsSync} from "fs";
 import * as Path from "path";
+import CliTable from "cli-table3";
 import dateFormat from "date-fns/format";
 
 import {Config} from "../makes/Config";
@@ -17,8 +18,8 @@ import {Service} from "../types";
 
 @Injectable()
 export class MariadbService {
-    protected config?: Config;
     protected containerAdminName = "dbadmin-mariadb.workspace";
+    protected config?: Config;
 
     public constructor(
         protected readonly appConfigService: AppConfigService,
@@ -128,12 +129,35 @@ export class MariadbService {
         await config.save();
     }
 
+    public async list() {
+        const config = await this.getConfig();
+
+        const table = new CliTable({
+            head: ["Name", "Host", "User", "External"]
+        });
+
+        for(const service of config.services) {
+            table.push([
+                service.name,
+                service.host ? service.host : Config.getContainerName(service.name),
+                service.user,
+                !!service.host
+            ]);
+        }
+
+        return table.toString();
+    }
+
     public async getServices() {
         const config = await this.getConfig();
 
         return (config.services || []).map((service) => {
             return service.name;
         });
+    }
+
+    public async services() {
+        //
     }
 
     public async start(name?: string, restart?: boolean) {
@@ -328,6 +352,10 @@ export class MariadbService {
 
         if(!service.host) {
             await this.dockerService.removeContainer(Config.getContainerName(service.name));
+
+            await this.pluginConfigService.rm(this.getDbDir(service.name), {
+                recursive: true
+            });
         }
 
         if(config.default === name) {
@@ -639,7 +667,16 @@ export class MariadbService {
 
     public async getConfig(): Promise<Config> {
         let data: PickProperties<Config> = !existsSync(this.pluginConfigService.dataPath(this.configPath))
-            ? {services: []}
+            ? {
+                default: "default",
+                services: [
+                    {
+                        name: "default",
+                        user: "root",
+                        password: "root"
+                    }
+                ]
+            }
             : await this.pluginConfigService.readJSON(this.configPath);
 
         return new class extends Config {
