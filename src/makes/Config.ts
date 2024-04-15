@@ -1,23 +1,29 @@
 import {PickProperties} from "@wocker/core";
 
-import {Service} from "../types";
+import {Service, ServiceProps} from "./Service";
 
+
+type ConfigProps = Omit<PickProperties<Config>, "services"> & {
+    services?: ServiceProps[];
+};
 
 export abstract class Config {
-    default?: string;
-    rootPassword?: string;
-    services: Service[];
+    public default?: string;
+    public rootPassword?: string;
+    public services: Service[];
 
-    protected constructor(data: PickProperties<Config>) {
+    protected constructor(data: ConfigProps) {
         const {
             default: defaultService,
             rootPassword,
-            services
+            services = []
         } = data;
 
         this.default = defaultService;
         this.rootPassword = rootPassword;
-        this.services = services;
+        this.services = services.map((s) => {
+            return new Service(s);
+        });
     }
 
     public getService(name: string): Service | null {
@@ -34,15 +40,15 @@ export abstract class Config {
         return this.getService(this.default);
     }
 
-    public setService(name: string, service: Omit<Service, "name">): void {
+    public setService(name: string, service: Omit<ServiceProps, "name">): void {
         this.services = [
             ...this.services.filter((service) => {
                 return service.name !== name;
             }),
-            {
-                name,
-                ...service
-            }
+            new Service({
+                ...service,
+                name
+            })
         ];
     }
 
@@ -54,7 +60,13 @@ export abstract class Config {
 
     public abstract save(): Promise<void>;
 
-    public static getContainerName(name: string): string {
-        return `mariadb-${name}.ws`;
+    public toJSON(): ConfigProps {
+        return {
+            default: this.default,
+            rootPassword: this.rootPassword,
+            services: this.services.length > 0 ? this.services.map((service) => {
+                return service.toJSON();
+            }) : undefined
+        };
     }
 }

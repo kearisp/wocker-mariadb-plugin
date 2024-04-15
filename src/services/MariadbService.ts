@@ -13,7 +13,7 @@ import CliTable from "cli-table3";
 import dateFormat from "date-fns/format";
 
 import {Config} from "../makes/Config";
-import {Service} from "../types";
+import {Service, ServiceProps} from "../makes/Service";
 
 
 @Injectable()
@@ -27,12 +27,8 @@ export class MariadbService {
         protected readonly dockerService: DockerService
     ) {}
 
-    protected async getServiceContainer(name: string) {
-        return this.dockerService.getContainer(Config.getContainerName(name));
-    }
-
     protected async query(service: Service, query: string): Promise<string|null> {
-        const container = await this.getServiceContainer(service.name);
+        const container = await this.dockerService.getContainer(service.containerName);
 
         if(!container) {
             return null;
@@ -71,7 +67,7 @@ export class MariadbService {
         });
     }
 
-    protected async getDatabases(service: Service) {
+    protected async getDatabases(service: Service): Promise<string[]> {
         const res = await this.query(service, "SHOW DATABASES;");
 
         if(!res) {
@@ -90,7 +86,7 @@ export class MariadbService {
             });
     }
 
-    protected async getDumpsDatabases(service: Service) {
+    protected async getDumpsDatabases(service: Service): Promise<string[]> {
         if(!this.pluginConfigService.exists(`dump/${service.name}`)) {
             return [];
         }
@@ -98,7 +94,7 @@ export class MariadbService {
         return this.pluginConfigService.readdir(`dump/${service.name}`);
     }
 
-    protected async getFiles(service: Service, database: string) {
+    protected async getFiles(service: Service, database: string): Promise<string[]> {
         if(!this.pluginConfigService.exists(`dump/${service.name}/${database}`)) {
             return [];
         }
@@ -106,15 +102,15 @@ export class MariadbService {
         return this.pluginConfigService.readdir(`dump/${service.name}/${database}`);
     }
 
-    public get configPath() {
+    public get configPath(): string {
         return "config.json";
     }
 
-    protected getDbDir(service: string) {
+    protected getDbDir(service: string): string {
         return this.appConfigService.dataPath("db/mariadb", service);
     }
 
-    public async init(rootPassword?: string) {
+    public async init(rootPassword?: string): Promise<void> {
         const config = await this.getConfig();
 
         if(!rootPassword) {
@@ -129,7 +125,7 @@ export class MariadbService {
         await config.save();
     }
 
-    public async list() {
+    public async list(): Promise<string> {
         const config = await this.getConfig();
 
         const table = new CliTable({
@@ -139,7 +135,7 @@ export class MariadbService {
         for(const service of config.services) {
             table.push([
                 service.name,
-                service.host ? service.host : Config.getContainerName(service.name),
+                service.host ? service.host : service.containerName,
                 service.user,
                 !!service.host
             ]);
@@ -148,7 +144,7 @@ export class MariadbService {
         return table.toString();
     }
 
-    public async getServices() {
+    public async getServices(): Promise<string[]> {
         const config = await this.getConfig();
 
         return (config.services || []).map((service) => {
@@ -156,11 +152,11 @@ export class MariadbService {
         });
     }
 
-    public async services() {
+    public async services(): Promise<void> {
         //
     }
 
-    public async start(name?: string, restart?: boolean) {
+    public async start(name?: string, restart?: boolean): Promise<void> {
         const service = await this.getService(name);
 
         if(service.host) {
@@ -170,14 +166,14 @@ export class MariadbService {
         await this.dockerService.pullImage("mariadb:latest");
 
         if(restart) {
-            await this.dockerService.removeContainer(Config.getContainerName(service.name));
+            await this.dockerService.removeContainer(service.containerName);
         }
 
-        let container = await this.getServiceContainer(service.name);
+        let container = await this.dockerService.getContainer(service.containerName);
 
         if(!container) {
             container = await this.dockerService.createContainer({
-                name: Config.getContainerName(service.name),
+                name: service.containerName,
                 image: "mariadb:latest",
                 restart: "always",
                 env: {
@@ -206,7 +202,7 @@ export class MariadbService {
         }
     }
 
-    public async startAdmin() {
+    public async startAdmin(): Promise<void> {
         console.info("Phpmyadmin starting...");
 
         const config = await this.getConfig();
@@ -218,7 +214,7 @@ export class MariadbService {
                 continue;
             }
 
-            const container = await this.getServiceContainer(service.name);
+            const container = await this.dockerService.getContainer(service.containerName);
 
             if(!container) {
                 continue;
@@ -244,7 +240,7 @@ export class MariadbService {
         let file = await FS.readFile(Path.join(__dirname, "../../data/conf/config.user.inc.php"));
 
         file = file.toString() + servers.map((service) => {
-            const host = service.host || Config.getContainerName(service.name);
+            const host = service.host || service.containerName;
 
             const res = [
                 `$i++;`,
@@ -302,7 +298,7 @@ export class MariadbService {
         }
     }
 
-    public async stop(name?: string) {
+    public async stop(name?: string): Promise<void> {
         const config = await this.getConfig();
         const service = name
             ? config.getService(name)
@@ -314,10 +310,10 @@ export class MariadbService {
 
         console.info("Mariadb stopping...");
 
-        await this.dockerService.removeContainer(Config.getContainerName(service.name));
+        await this.dockerService.removeContainer(service.containerName);
     }
 
-    public async create(service: {name: string} & Partial<Service>) {
+    public async create(service: {name: string} & Partial<ServiceProps>) {
         const config = await this.getConfig();
 
         if(!service.user) {
@@ -341,7 +337,7 @@ export class MariadbService {
         await config.save();
     }
 
-    public async destroy(name: string) {
+    public async destroy(name: string): Promise<void> {
         const config = await this.getConfig();
 
         const service = config.getService(name);
@@ -351,11 +347,17 @@ export class MariadbService {
         }
 
         if(!service.host) {
-            await this.dockerService.removeContainer(Config.getContainerName(service.name));
+            await this.dockerService.removeContainer(service.containerName);
 
-            await this.pluginConfigService.rm(this.getDbDir(service.name), {
-                recursive: true
-            });
+            try {
+                await FS.rm(this.getDbDir(service.name), {
+                    recursive: true,
+                    force: true
+                });
+            }
+            catch(err) {
+                console.error((err as Error).message);
+            }
         }
 
         if(config.default === name) {
@@ -393,7 +395,7 @@ export class MariadbService {
             throw new Error("Service not found");
         }
 
-        const container = await this.getServiceContainer(service.name);
+        const container = await this.dockerService.getContainer(service.containerName);
 
         if(!container) {
             throw new Error("Service not started");
@@ -456,7 +458,7 @@ export class MariadbService {
             throw new Error("Service not found");
         }
 
-        const container = await this.getServiceContainer(service.name);
+        const container = await this.dockerService.getContainer(service.containerName);
 
         if(!container) {
             throw new Error("");
@@ -557,7 +559,7 @@ export class MariadbService {
             throw new Error("Service not found");
         }
 
-        const container = await this.getServiceContainer(service.name);
+        const container = await this.dockerService.getContainer(service.containerName);
 
         if(!container) {
             throw new Error("");
@@ -622,7 +624,7 @@ export class MariadbService {
 
     public async dump(name?: string, database?: string) {
         const service = await this.getService(name);
-        const container = await this.getServiceContainer(service.name);
+        const container = await this.dockerService.getContainer(service.containerName);
 
         if(!container) {
             throw new Error("Service isn't started");
