@@ -6,7 +6,7 @@ import {
     FS,
     PickProperties
 } from "@wocker/core";
-import {demuxOutput, promptSelect, promptText} from "@wocker/utils";
+import {demuxOutput, promptConfirm, promptSelect, promptText} from "@wocker/utils";
 import {existsSync} from "fs";
 import * as Path from "path";
 import CliTable from "cli-table3";
@@ -446,8 +446,7 @@ export class MariadbService {
     public async backup(
         name?: string,
         database?: string,
-        filename?: string,
-        del?: boolean
+        filename?: string
     ) {
         const config = await this.getConfig();
         const service = name
@@ -461,37 +460,7 @@ export class MariadbService {
         const container = await this.dockerService.getContainer(service.containerName);
 
         if(!container) {
-            throw new Error("");
-        }
-
-        if(del) {
-            if(!database) {
-                const databases = await this.getDumpsDatabases(service);
-
-                database = await promptSelect({
-                    message: "Database:",
-                    options: databases
-                });
-            }
-
-            if(!filename) {
-                const files = await this.getFiles(service, database);
-
-                filename = await promptSelect({
-                    message: "File:",
-                    options: files
-                });
-            }
-
-            const path = `dump/${service.name}/${database}/${filename}`;
-
-            if(!this.pluginConfigService.exists(path)) {
-                throw new Error(`File "${filename}" does not exists.`)
-            }
-
-            await this.pluginConfigService.rm(path);
-            console.info(`File "${filename}" deleted`);
-            return;
+            throw new Error("Service not running");
         }
 
         if(!database) {
@@ -543,6 +512,58 @@ export class MariadbService {
             stream.on("end", resolve);
             stream.on("error", reject);
         });
+    }
+
+    public async deleteBackup(name?: string, database?: string, filename?: string, confirm?: boolean): Promise<void> {
+        const config = await this.getConfig();
+        const service = name
+            ? config.getService(name)
+            : config.getDefaultService();
+
+        if(!service) {
+            throw new Error("Service not found");
+        }
+
+        if(!database) {
+            const databases = await this.getDumpsDatabases(service);
+
+            database = await promptSelect({
+                message: "Database:",
+                options: databases
+            });
+        }
+
+        if(!filename) {
+            const files = await this.getFiles(service, database);
+
+            filename = await promptSelect({
+                message: "File:",
+                options: files
+            });
+        }
+
+        const path = `dump/${service.name}/${database}/${filename}`;
+
+        if(!this.pluginConfigService.exists(path)) {
+            throw new Error(`File "${filename}" does not exists.`)
+        }
+
+        if(!confirm) {
+            confirm = await promptConfirm({
+                message: "Are you sure you want to delete?",
+                default: false
+            });
+        }
+
+        if(!confirm) {
+            throw new Error("Canceled");
+        }
+
+        await this.pluginConfigService.rm(path);
+
+        console.info(`File "${filename}" deleted`);
+
+        return;
     }
 
     public async restore(
