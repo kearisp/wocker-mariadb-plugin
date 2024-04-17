@@ -157,7 +157,12 @@ export class MariadbController {
         filename?: string,
         service?: string
     ) {
-        await this.mariadbService.backup(service, database, filename, del);
+        if(del) {
+            await this.mariadbService.deleteBackup(service, database, filename, yes);
+            return;
+        }
+
+        await this.mariadbService.backup(service, database, filename);
     }
 
     @Command("mariadb:restore [service]")
@@ -177,6 +182,12 @@ export class MariadbController {
         service?: string
     ) {
         await this.mariadbService.restore(service, database, filename);
+    }
+
+    @Command("mariadb:ls")
+    @Command("mariadb:list")
+    public async list() {
+        return this.mariadbService.list();
     }
 
     @Completion("service")

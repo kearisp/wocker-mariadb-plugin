@@ -1,6 +1,6 @@
 {
     "name": "@wocker/mariadb-plugin",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "author": "Kris Papercut <krispcut@gmai.com>",
     "description": "Mariadb plugin for wocker",
     "license": "MIT",
@@ -27,6 +27,7 @@
     "dependencies": {
         "@wocker/core": "^1.0.10",
         "@wocker/utils": "^1.0.4",
+        "cli-table3": "^0.6.4",
         "date-fns": "^2.30.0",
         "path": "^0.12.7"
     },
