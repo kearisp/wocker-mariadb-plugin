@@ -12,7 +12,7 @@ export abstract class Config {
     public rootPassword?: string;
     public services: Service[];
 
-    protected constructor(data: ConfigProps) {
+    public constructor(data: ConfigProps) {
         const {
             default: defaultService,
             rootPassword,
