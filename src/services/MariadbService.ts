@@ -324,7 +324,8 @@ export class MariadbService {
 
         if(!service.password) {
             service.password = await promptText({
-                message: "Password:"
+                message: "Password:",
+                type: "password"
             });
         }
 
