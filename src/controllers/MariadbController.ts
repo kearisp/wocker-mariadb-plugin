@@ -28,7 +28,7 @@ export class MariadbController {
         })
         database?: string,
         service?: string
-    ) {
+    ): Promise<void> {
         await this.mariadbService.mariadb(service, database);
     }
 
@@ -39,7 +39,7 @@ export class MariadbController {
             alias: "p"
         })
         rootPassword?: string
-    ) {
+    ): Promise<void> {
         await this.mariadbService.init(rootPassword);
     }
 
@@ -64,7 +64,7 @@ export class MariadbController {
         })
         host: string,
         service: string
-    ) {
+    ): Promise<void> {
         await this.mariadbService.create({
             name: service,
             user,
@@ -78,13 +78,13 @@ export class MariadbController {
     }
 
     @Command("mariadb:destroy <service>")
-    public async destroy(service: string) {
+    public async destroy(service: string): Promise<void> {
         await this.mariadbService.destroy(service);
         await this.mariadbService.startAdmin();
     }
 
     @Command("mariadb:use [service]")
-    public async default(service?: string) {
+    public async default(service?: string): Promise<string | undefined> {
         if(!service) {
             const data = await this.mariadbService.getDefault();
 
@@ -106,7 +106,7 @@ export class MariadbController {
         })
         restart?: boolean,
         service?: string
-    ) {
+    ): Promise<void> {
         await this.mariadbService.start(service, restart);
         await this.mariadbService.startAdmin();
     }
@@ -125,7 +125,7 @@ export class MariadbController {
         })
         database?: string,
         service?: string
-    ) {
+    ): Promise<void> {
         await this.mariadbService.dump(service, database);
     }
 
@@ -156,7 +156,7 @@ export class MariadbController {
         })
         filename?: string,
         service?: string
-    ) {
+    ): Promise<void> {
         if(del) {
             await this.mariadbService.deleteBackup(service, database, filename, yes);
             return;
@@ -180,18 +180,18 @@ export class MariadbController {
         })
         filename?: string,
         service?: string
-    ) {
+    ): Promise<void> {
         await this.mariadbService.restore(service, database, filename);
     }
 
     @Command("mariadb:ls")
     @Command("mariadb:list")
-    public async list() {
+    public async list(): Promise<string> {
         return this.mariadbService.list();
     }
 
     @Completion("service")
-    public async getServices() {
+    public async getServices(): Promise<string[]> {
         return this.mariadbService.getServices();
     }
 }

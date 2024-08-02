@@ -27,7 +27,7 @@ export class MariadbService {
         protected readonly dockerService: DockerService
     ) {}
 
-    protected async query(service: Service, query: string): Promise<string|null> {
+    protected async query(service: Service, query: string): Promise<string | null> {
         const container = await this.dockerService.getContainer(service.containerName);
 
         if(!container) {
@@ -313,7 +313,7 @@ export class MariadbService {
         await this.dockerService.removeContainer(service.containerName);
     }
 
-    public async create(service: {name: string} & Partial<ServiceProps>) {
+    public async create(service: {name: string} & Partial<ServiceProps>): Promise<void> {
         const config = await this.getConfig();
 
         if(!service.user) {
@@ -370,13 +370,13 @@ export class MariadbService {
         await config.save();
     }
 
-    public async getDefault() {
+    public async getDefault(): Promise<Service | null> {
         const config = await this.getConfig();
 
         return config.getDefaultService();
     }
 
-    public async setDefault(name: string) {
+    public async setDefault(name: string): Promise<void> {
         const config = await this.getConfig();
 
         if(!config.getService(name)) {
@@ -388,7 +388,7 @@ export class MariadbService {
         await config.save();
     }
 
-    public async mariadb(name?: string, database?: string) {
+    public async mariadb(name?: string, database?: string): Promise<void> {
         const config = await this.getConfig();
         const service = name ? config.getService(name) : config.getDefaultService();
 
@@ -448,7 +448,7 @@ export class MariadbService {
         name?: string,
         database?: string,
         filename?: string
-    ) {
+    ): Promise<void> {
         const config = await this.getConfig();
         const service = name
             ? config.getService(name)
@@ -571,7 +571,7 @@ export class MariadbService {
         name?: string,
         database?: string,
         filename?: string
-    ) {
+    ): Promise<void> {
         const config = await this.getConfig();
         const service = name
             ? config.getService(name)
@@ -644,7 +644,7 @@ export class MariadbService {
         console.info("Imported");
     }
 
-    public async dump(name?: string, database?: string) {
+    public async dump(name?: string, database?: string): Promise<void> {
         const service = await this.getService(name);
         const container = await this.dockerService.getContainer(service.containerName);
 
@@ -690,38 +690,33 @@ export class MariadbService {
     }
 
     public async getConfig(): Promise<Config> {
-        let data: PickProperties<Config> = !existsSync(this.pluginConfigService.dataPath(this.configPath))
-            ? {
-                default: "default",
-                services: [
-                    {
-                        name: "default",
-                        user: "root",
-                        password: "root"
-                    }
-                ]
-            }
-            : await this.pluginConfigService.readJSON(this.configPath);
+        if(!this.config) {
+            let data: PickProperties<Config> = !existsSync(this.pluginConfigService.dataPath(this.configPath))
+                ? {
+                    default: "default",
+                    services: [
+                        {
+                            name: "default",
+                            user: "root",
+                            password: "root"
+                        }
+                    ]
+                }
+                : await this.pluginConfigService.readJSON(this.configPath);
 
-        return new class extends Config {
-            public constructor(
-                private service: MariadbService,
-                data: PickProperties<Config>
-            ) {
-                super(data);
-            }
+            const _this = this;
 
-            public async save() {
-                await this.service.pluginConfigService.writeJSON(this.service.configPath, {
-                    default: this.default,
-                    rootPassword: this.rootPassword,
-                    services: this.services
-                });
-            }
-        }(this, data);
+            this.config = new class extends Config {
+                public async save(): Promise<void> {
+                    await _this.pluginConfigService.writeJSON(_this.configPath, this.toJSON());
+                }
+            }(data);
+        }
+
+        return this.config;
     }
 
-    public async getService(name?: string) {
+    public async getService(name?: string): Promise<Service> {
         const config = await this.getConfig();
         const service = name
             ? config.getService(name)
