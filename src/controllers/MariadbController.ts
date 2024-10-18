@@ -2,7 +2,8 @@ import {
     Controller,
     Completion,
     Command,
-    Option
+    Option,
+    Param
 } from "@wocker/core";
 import {
     AppConfigService,
@@ -78,8 +79,17 @@ export class MariadbController {
     }
 
     @Command("mariadb:destroy <service>")
-    public async destroy(service: string): Promise<void> {
-        await this.mariadbService.destroy(service);
+    public async destroy(
+        @Param("service")
+        service: string,
+        @Option("force", {
+            type: "boolean",
+            alias: "f",
+            description: "Force deletion"
+        })
+        force?: boolean
+    ): Promise<void> {
+        await this.mariadbService.destroy(service, force);
         await this.mariadbService.startAdmin();
     }
 
@@ -112,7 +122,7 @@ export class MariadbController {
     }
 
     @Command("mariadb:stop [service]")
-    public async stop(service?: string) {
+    public async stop(service?: string): Promise<void> {
         await this.mariadbService.stop(service);
         await this.mariadbService.startAdmin();
     }
