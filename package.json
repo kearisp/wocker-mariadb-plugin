@@ -1,6 +1,6 @@
 {
     "name": "@wocker/mariadb-plugin",
-    "version": "1.0.6",
+    "version": "1.0.7",
     "author": "Kris Papercut <krispcut@gmail.com>",
     "description": "Mariadb plugin for wocker",
     "license": "MIT",
