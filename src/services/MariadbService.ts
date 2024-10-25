@@ -738,11 +738,11 @@ export class MariadbService {
             file.on("error", reject);
             file.on("end", resolve);
 
-            stream.on("data", (data) => {
+            stream.on("data", (data: any): void => {
                 process.stdout.write(data);
             });
 
-            stream.on("error", (err: Error) => {
+            stream.on("error", (err: Error): void => {
                 file.close();
                 reject(err);
             });
