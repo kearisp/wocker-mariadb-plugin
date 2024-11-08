@@ -383,19 +383,42 @@ export class MariadbService {
         await this.dockerService.removeContainer(service.containerName);
     }
 
-    public async create(service: {name: string} & Partial<ServiceProps>): Promise<void> {
+    public async create(service: Partial<ServiceProps>): Promise<void> {
         const config = await this.getConfig();
+
+        if(service.name && config.getService(service.name)) {
+            console.info(`Service "${service.name}" is already exists`);
+        }
+
+        if(!service.name) {
+            await promptText({
+                message: "Service name:",
+                validate(value) {
+                    if(!value) {
+                        return "Service name is required";
+                    }
+
+                    if(config.getService(value)) {
+                        return `Service ${value} is already exists`;
+                    }
+
+                    return true;
+                }
+            });
+        }
 
         if(!service.user) {
             service.user = await promptText({
-                message: "User:"
+                message: "User:",
+                required: true
             });
         }
 
         if(!service.password) {
             service.password = await promptText({
                 message: "Password:",
-                type: "password"
+                type: "password",
+                required: true
             });
 
             const confirmPassword = await promptText({
@@ -415,7 +438,7 @@ export class MariadbService {
             });
         }
 
-        config.setService(service.name, service);
+        config.setService(service.name as string, service);
 
         if(!config.default) {
             config.default = service.name;
@@ -424,7 +447,11 @@ export class MariadbService {
         await config.save();
     }
 
-    public async destroy(name: string, force?: boolean): Promise<void> {
+    public async destroy(name?: string, force?: boolean): Promise<void> {
+        if(!name) {
+            throw new Error("Service name required");
+        }
+
         const config = await this.getConfig();
 
         const service = config.getService(name);

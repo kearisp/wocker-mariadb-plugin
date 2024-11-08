@@ -45,10 +45,10 @@ export class MariadbController {
         await this.mariadbService.init(rootPassword);
     }
 
-    @Command("mariadb:create <service>")
+    @Command("mariadb:create [service]")
     public async create(
         @Param("service")
-        service: string,
+        service?: string,
         @Option("user", {
             type: "string",
             alias: "u",
@@ -80,10 +80,10 @@ export class MariadbController {
         }
     }
 
-    @Command("mariadb:destroy <service>")
+    @Command("mariadb:destroy [service]")
     public async destroy(
         @Param("service")
-        service: string,
+        service?: string,
         @Option("force", {
             type: "boolean",
             alias: "f",
@@ -212,8 +212,13 @@ export class MariadbController {
         return this.mariadbService.list();
     }
 
+    @Completion("service", "mariadb:create [service]")
+    public getEmp(): string[] {
+        return [];
+    }
+
     @Completion("service")
-    public async getServices(): Promise<string[]> {
+    public async getExistsServices(): Promise<string[]> {
         return this.mariadbService.getServices();
     }
 }
