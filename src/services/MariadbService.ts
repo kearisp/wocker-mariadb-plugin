@@ -1,9 +1,11 @@
 import {
     Injectable,
     AppConfigService,
+    ProxyService,
     PluginConfigService,
     DockerService,
     FS,
+    FileSystem,
     PickProperties
 } from "@wocker/core";
 import {demuxOutput, promptConfirm, promptSelect, promptText} from "@wocker/utils";
@@ -24,7 +26,8 @@ export class MariadbService {
     public constructor(
         protected readonly appConfigService: AppConfigService,
         protected readonly pluginConfigService: PluginConfigService,
-        protected readonly dockerService: DockerService
+        protected readonly dockerService: DockerService,
+        protected readonly proxyService: ProxyService
     ) {}
 
     protected async query(service: Service, query: string): Promise<string | null> {
@@ -129,15 +132,38 @@ export class MariadbService {
         const config = await this.getConfig();
 
         const table = new CliTable({
-            head: ["Name", "Host", "User", "External"]
+            head: ["Name", "Host", "User", "External", "Storage", "IP"]
         });
 
         for(const service of config.services) {
+            let ip = "";
+
+            if(!service.host) {
+                const container = await this.dockerService.getContainer(service.containerName);
+
+                if(container) {
+                    const {
+                        NetworkSettings: {
+                            // IPAddress,
+                            Networks: {
+                                workspace: {
+                                    IPAddress
+                                }
+                            }
+                        }
+                    } = await container.inspect();
+
+                    ip = `${IPAddress}`;
+                }
+            }
+
             table.push([
-                service.name,
+                service.name + (config.default === service.name ? " (default)" : ""),
                 service.host ? service.host : service.containerName,
                 service.user,
-                !!service.host
+                !!service.host,
+                !service.host ? service.storage : "",
+                ip || "-"
             ]);
         }
 
@@ -172,6 +198,39 @@ export class MariadbService {
         let container = await this.dockerService.getContainer(service.containerName);
 
         if(!container) {
+            console.info(`Starting ${service.name} service...`);
+
+            const volumes: string[] = [];
+
+            switch(service.storage) {
+                case "volume": {
+                    if(!this.appConfigService.isVersionGTE || !this.appConfigService.isVersionGTE("1.0.19")) {
+                        throw new Error("Please update wocker for using volume storage");
+                    }
+
+                    if(!await this.dockerService.hasVolume(service.volumeName)) {
+                        await this.dockerService.createVolume(service.volumeName);
+                    }
+
+                    volumes.push(`${service.volumeName}:/var/lib/mysql`);
+                    break;
+                }
+
+                case "filesystem":
+                default: {
+                    const fs = new FileSystem(this.appConfigService.dataPath("db/mariadb"));
+
+                    if(!fs.exists(service.name)) {
+                        fs.mkdir(service.name, {
+                            recursive: true
+                        });
+                    }
+
+                    volumes.push(`${this.getDbDir(service.name)}:/var/lib/mysql`);
+                    break;
+                }
+            }
+
             container = await this.dockerService.createContainer({
                 name: service.containerName,
                 image: "mariadb:latest",
@@ -183,11 +242,12 @@ export class MariadbService {
                     ...service.password ? {
                         MARIADB_PASSWORD: service.password,
                         MARIADB_ROOT_PASSWORD: service.password
+                    } : {},
+                    ...service.passwordHash ? {
+                        MARIADB_ROOT_PASSWORD_HASH: service.passwordHash
                     } : {}
                 },
-                volumes: [
-                    `${this.getDbDir(service.name)}:/var/lib/mysql`
-                ]
+                volumes
             });
         }
 
@@ -247,22 +307,31 @@ export class MariadbService {
                 `$cfg['Servers'][$i]['host'] = '${host}';`
             ];
 
-            if(service.user) {
+            if(service.user && service.password) {
                 res.push(`$cfg['Servers'][$i]['auth_type'] = 'config';`);
                 res.push(`$cfg['Servers'][$i]['user'] = '${service.user}';`);
-            }
-
-            if(service.password) {
                 res.push(`$cfg['Servers'][$i]['password'] = '${service.password}';`);
+            }
+            else if(service.user) {
+                res.push(`$cfg['Servers'][$i]['auth_type'] = 'cookie';`);
+                res.push(`$cfg['Servers'][$i]['user'] = '${service.user}';`);
             }
 
             return res.join("\n");
         }).join("\n");
 
-        await this.pluginConfigService.writeFile("config.user.inc.php", file);
-        await this.pluginConfigService.mkdir("dump", {recursive: true});
-        await this.pluginConfigService.mkdir("save", {recursive: true});
-        await this.pluginConfigService.mkdir("upload", {recursive: true});
+        if(this.appConfigService.isVersionGTE && this.appConfigService.isVersionGTE("1.0.19")) {
+            await this.pluginConfigService.fs.writeFile("config.user.inc.php", file);
+            this.pluginConfigService.fs.mkdir("dump", {recursive: true});
+            this.pluginConfigService.fs.mkdir("save", {recursive: true});
+            this.pluginConfigService.fs.mkdir("upload", {recursive: true});
+        }
+        else {
+            await this.pluginConfigService.writeFile("config.user.inc.php", file);
+            await this.pluginConfigService.mkdir("dump", {recursive: true});
+            await this.pluginConfigService.mkdir("save", {recursive: true});
+            await this.pluginConfigService.mkdir("upload", {recursive: true});
+        }
 
         let container = await this.dockerService.getContainer(this.containerAdminName);
 
@@ -295,6 +364,7 @@ export class MariadbService {
 
         if(!Running) {
             await container.start();
+            await this.proxyService.start();
         }
     }
 
@@ -313,23 +383,62 @@ export class MariadbService {
         await this.dockerService.removeContainer(service.containerName);
     }
 
-    public async create(service: {name: string} & Partial<ServiceProps>): Promise<void> {
+    public async create(service: Partial<ServiceProps>): Promise<void> {
         const config = await this.getConfig();
+
+        if(service.name && config.getService(service.name)) {
+            console.info(`Service "${service.name}" is already exists`);
+        }
+
+        if(!service.name) {
+            await promptText({
+                message: "Service name:",
+                validate(value) {
+                    if(!value) {
+                        return "Service name is required";
+                    }
+
+                    if(config.getService(value)) {
+                        return `Service ${value} is already exists`;
+                    }
+
+                    return true;
+                }
+            });
+        }
 
         if(!service.user) {
             service.user = await promptText({
-                message: "User:"
+                message: "User:",
+                required: true
             });
         }
 
         if(!service.password) {
             service.password = await promptText({
                 message: "Password:",
+                type: "password",
+                required: true
+            });
+
+            const confirmPassword = await promptText({
+                message: "Confirm password:",
                 type: "password"
+            });
+
+            if(service.password !== confirmPassword) {
+                throw new Error("Password didn't match");
+            }
+        }
+
+        if(!service.storage) {
+            service.storage = await promptSelect<any>({
+                message: "Storage:",
+                options: ["volume", "filesystem"]
             });
         }
 
-        config.setService(service.name, service);
+        config.setService(service.name as string, service);
 
         if(!config.default) {
             config.default = service.name;
@@ -338,7 +447,11 @@ export class MariadbService {
         await config.save();
     }
 
-    public async destroy(name: string): Promise<void> {
+    public async destroy(name?: string, force?: boolean): Promise<void> {
+        if(!name) {
+            throw new Error("Service name required");
+        }
+
         const config = await this.getConfig();
 
         const service = config.getService(name);
@@ -347,17 +460,33 @@ export class MariadbService {
             throw new Error(`Service ${name} not found`);
         }
 
+        if(config.default === service.name && !force) {
+            throw new Error("Can't destroy default service");
+        }
+
         if(!service.host) {
             await this.dockerService.removeContainer(service.containerName);
 
-            try {
-                await FS.rm(this.getDbDir(service.name), {
-                    recursive: true,
-                    force: true
-                });
-            }
-            catch(err) {
-                console.error((err as Error).message);
+            switch(service.storage) {
+                case "volume": {
+                    if(!this.appConfigService.isVersionGTE || !this.appConfigService.isVersionGTE("1.0.19")) {
+                        throw new Error("Please update wocker for using volume storage");
+                    }
+
+                    if(await this.dockerService.hasVolume(service.volumeName)) {
+                        await this.dockerService.rmVolume(service.volumeName);
+                    }
+                    break;
+                }
+
+                case "filesystem":
+                default: {
+                    await FS.rm(this.getDbDir(service.name), {
+                        recursive: true,
+                        force: true
+                    });
+                    break;
+                }
             }
         }
 
@@ -483,7 +612,9 @@ export class MariadbService {
             });
         }
 
-        await this.pluginConfigService.mkdir(`dump/${service.name}/${database}`, {recursive: true});
+        await this.pluginConfigService.mkdir(`dump/${service.name}/${database}`, {
+            recursive: true
+        });
 
         const file = this.pluginConfigService.createWriteSteam(`dump/${service.name}/${database}/${filename}.sql`);
 
@@ -584,7 +715,7 @@ export class MariadbService {
         const container = await this.dockerService.getContainer(service.containerName);
 
         if(!container) {
-            throw new Error("");
+            throw new Error("Mariadb instance isn't started");
         }
 
         if(!database) {
@@ -601,7 +732,7 @@ export class MariadbService {
             });
         }
 
-        const cmd = ["mariadb-dump", database as string];
+        const cmd = ["mariadb", database as string];
 
         if(service.user) {
             cmd.push(`-u${service.user}`);
@@ -620,7 +751,8 @@ export class MariadbService {
 
         const stream = await exec.start({
             hijack: true,
-            stdin: true
+            stdin: true,
+
         });
 
         await new Promise((resolve, reject) => {
@@ -630,18 +762,20 @@ export class MariadbService {
                 stream.write(data);
             });
 
-            file.on("end", resolve);
             file.on("error", reject);
+            file.on("end", resolve);
 
-            stream.on("error", (err: Error) => {
+            stream.on("data", (data: any): void => {
+                process.stdout.write(data);
+            });
+
+            stream.on("error", (err: Error): void => {
                 file.close();
                 reject(err);
             });
         });
 
         stream.write("exit\n");
-
-        console.info("Imported");
     }
 
     public async dump(name?: string, database?: string): Promise<void> {
@@ -698,7 +832,8 @@ export class MariadbService {
                         {
                             name: "default",
                             user: "root",
-                            password: "root"
+                            password: "root",
+                            storage: "volume"
                         }
                     ]
                 }

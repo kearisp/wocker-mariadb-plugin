@@ -2,7 +2,8 @@ import {
     Controller,
     Completion,
     Command,
-    Option
+    Option,
+    Param
 } from "@wocker/core";
 import {
     AppConfigService,
@@ -22,12 +23,13 @@ export class MariadbController {
 
     @Command("mariadb [service]")
     public async mariadb(
+        @Param("service")
+        service?: string,
         @Option("database", {
             type: "string",
             alias: "d"
         })
-        database?: string,
-        service?: string
+        database?: string
     ): Promise<void> {
         await this.mariadbService.mariadb(service, database);
     }
@@ -43,27 +45,28 @@ export class MariadbController {
         await this.mariadbService.init(rootPassword);
     }
 
-    @Command("mariadb:create <service>")
+    @Command("mariadb:create [service]")
     public async create(
+        @Param("service")
+        service?: string,
         @Option("user", {
             type: "string",
             alias: "u",
             description: "User name"
         })
-        user: string,
+        user?: string,
         @Option("password", {
             type: "string",
             alias: "p",
             description: "Password"
         })
-        password: string,
+        password?: string,
         @Option("host", {
             type: "string",
             alias: "h",
             description: "External host"
         })
-        host: string,
-        service: string
+        host?: string
     ): Promise<void> {
         await this.mariadbService.create({
             name: service,
@@ -77,14 +80,26 @@ export class MariadbController {
         }
     }
 
-    @Command("mariadb:destroy <service>")
-    public async destroy(service: string): Promise<void> {
-        await this.mariadbService.destroy(service);
+    @Command("mariadb:destroy [service]")
+    public async destroy(
+        @Param("service")
+        service?: string,
+        @Option("force", {
+            type: "boolean",
+            alias: "f",
+            description: "Force deletion"
+        })
+        force?: boolean
+    ): Promise<void> {
+        await this.mariadbService.destroy(service, force);
         await this.mariadbService.startAdmin();
     }
 
     @Command("mariadb:use [service]")
-    public async default(service?: string): Promise<string | undefined> {
+    public async default(
+        @Param("service")
+        service?: string
+    ): Promise<string | undefined> {
         if(!service) {
             const data = await this.mariadbService.getDefault();
 
@@ -100,37 +115,44 @@ export class MariadbController {
 
     @Command("mariadb:start [service]")
     public async start(
+        @Param("service")
+        service?: string,
         @Option("restart", {
             type: "boolean",
             alias: "r"
         })
-        restart?: boolean,
-        service?: string
+        restart?: boolean
     ): Promise<void> {
         await this.mariadbService.start(service, restart);
         await this.mariadbService.startAdmin();
     }
 
     @Command("mariadb:stop [service]")
-    public async stop(service?: string) {
+    public async stop(
+        @Param("service")
+        service?: string
+    ): Promise<void> {
         await this.mariadbService.stop(service);
         await this.mariadbService.startAdmin();
     }
 
     @Command("mariadb:dump [service]")
     public async dump(
+        @Param("service")
+        service?: string,
         @Option("database", {
             type: "string",
             alias: "d"
         })
-        database?: string,
-        service?: string
+        database?: string
     ): Promise<void> {
         await this.mariadbService.dump(service, database);
     }
 
     @Command("mariadb:backup [service]")
     public async backup(
+        @Param("service")
+        service?: string,
         @Option("yes", {
             type: "boolean",
             alias: "y",
@@ -154,8 +176,7 @@ export class MariadbController {
             alias: "f",
             description: "File name"
         })
-        filename?: string,
-        service?: string
+        filename?: string
     ): Promise<void> {
         if(del) {
             await this.mariadbService.deleteBackup(service, database, filename, yes);
@@ -167,6 +188,8 @@ export class MariadbController {
 
     @Command("mariadb:restore [service]")
     public async restore(
+        @Param("service")
+        service?: string,
         @Option("database", {
             type: "string",
             alias: "d",
@@ -178,8 +201,7 @@ export class MariadbController {
             alias: "f",
             description: "File name"
         })
-        filename?: string,
-        service?: string
+        filename?: string
     ): Promise<void> {
         await this.mariadbService.restore(service, database, filename);
     }
@@ -190,8 +212,13 @@ export class MariadbController {
         return this.mariadbService.list();
     }
 
+    @Completion("service", "mariadb:create [service]")
+    public getEmp(): string[] {
+        return [];
+    }
+
     @Completion("service")
-    public async getServices(): Promise<string[]> {
+    public async getExistsServices(): Promise<string[]> {
         return this.mariadbService.getServices();
     }
 }
