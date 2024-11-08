@@ -217,6 +217,35 @@ export class MariadbController {
         return [];
     }
 
+    @Completion("database", "mariadb:backup [service]")
+    public async getDatabases(
+        @Param("service")
+        name?: string
+    ): Promise<string[]> {
+        try {
+            const service = await this.mariadbService.getService(name);
+
+            return await this.mariadbService.getDatabases(service);
+        }
+        catch(err) {
+            return [];
+        }
+    }
+
+    @Completion("filename")
+    public async getFilename(
+        @Param("service")
+        service?: string,
+        @Option("database")
+        database?: string
+    ): Promise<string[]> {
+        if(!service || !database) {
+            return [];
+        }
+
+        return [];
+    }
+
     @Completion("service")
     public async getExistsServices(): Promise<string[]> {
         return this.mariadbService.getServices();

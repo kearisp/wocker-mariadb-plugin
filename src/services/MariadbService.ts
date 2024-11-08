@@ -8,7 +8,7 @@ import {
     FileSystem,
     PickProperties
 } from "@wocker/core";
-import {demuxOutput, promptConfirm, promptSelect, promptText} from "@wocker/utils";
+import {promptConfirm, promptSelect, promptText} from "@wocker/utils";
 import {existsSync} from "fs";
 import * as Path from "path";
 import CliTable from "cli-table3";
@@ -59,7 +59,7 @@ export class MariadbService {
             let result = "";
 
             stream.on("data", (data: any) => {
-                result += demuxOutput(data).toString();
+                result += data.toString();
             });
 
             stream.on("end", () => {
@@ -70,7 +70,7 @@ export class MariadbService {
         });
     }
 
-    protected async getDatabases(service: Service): Promise<string[]> {
+    public async getDatabases(service: Service): Promise<string[]> {
         const res = await this.query(service, "SHOW DATABASES;");
 
         if(!res) {
@@ -610,13 +610,14 @@ export class MariadbService {
                 default: date,
                 suffix: ".sql"
             });
+            filename += ".sql";
         }
 
-        await this.pluginConfigService.mkdir(`dump/${service.name}/${database}`, {
+        this.pluginConfigService.fs.mkdir(`dump/${service.name}/${database}`, {
             recursive: true
         });
 
-        const file = this.pluginConfigService.createWriteSteam(`dump/${service.name}/${database}/${filename}.sql`);
+        const file = this.pluginConfigService.createWriteSteam(`dump/${service.name}/${database}/${filename}`);
 
         const cmd = ["mariadb-dump", database as string, "--add-drop-table"];
 
@@ -630,15 +631,21 @@ export class MariadbService {
 
         const exec = await container.exec({
             Cmd: cmd,
+            Tty: true,
             AttachStdin: true,
             AttachStdout: true,
             AttachStderr: true
         });
 
-        const stream = await exec.start({});
+        const stream = await exec.start({
+            Tty: true,
+            stdin: true,
+            hijack: true
+        });
+
         await new Promise((resolve, reject) => {
-            stream.on("data", (data: any) => {
-                file.write(demuxOutput(data));
+            stream.on("data", (data: Buffer): void => {
+                file.write(data.toString("utf-8"));
             });
 
             stream.on("end", resolve);
@@ -751,8 +758,7 @@ export class MariadbService {
 
         const stream = await exec.start({
             hijack: true,
-            stdin: true,
-
+            stdin: true
         });
 
         await new Promise((resolve, reject) => {
