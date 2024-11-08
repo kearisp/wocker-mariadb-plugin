@@ -364,6 +364,15 @@ export class MariadbService {
 
         if(!Running) {
             await container.start();
+            await this.dockerService.exec(this.containerAdminName, [
+                "bash", "-c",
+                [
+                    "apt-get update",
+                    "apt-get install acl",
+                    "setfacl -R -m u:www-data:rwx /etc/phpmyadmin/save"
+                ].join(" && ")
+            ]);
+
             await this.proxyService.start();
         }
     }
@@ -619,7 +628,7 @@ export class MariadbService {
 
         const file = this.pluginConfigService.createWriteSteam(`dump/${service.name}/${database}/${filename}`);
 
-        const cmd = ["mariadb-dump", database as string, "--add-drop-table"];
+        const cmd = ["mariadb-dump", database as string, "--add-drop-table", "--hex-blob"];
 
         if(service.user) {
             cmd.push(`-u${service.user}`);
