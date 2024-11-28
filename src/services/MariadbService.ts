@@ -54,7 +54,7 @@ export class MariadbService {
 
         const stream = await exec.start({});
 
-        return new Promise((resolve, reject) => {
+        return new Promise<string>((resolve, reject) => {
             let result = "";
 
             stream.on("data", (data: any) => {
@@ -249,9 +249,9 @@ export class MariadbService {
                     } : {}
                 },
                 volumes,
-                aliases: [
-                    service.containerName
-                ]
+                // aliases: [
+                //     service.containerName
+                // ]
             });
         }
 

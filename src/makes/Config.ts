@@ -65,7 +65,7 @@ export abstract class Config {
             default: this.default,
             rootPassword: this.rootPassword,
             services: this.services.length > 0 ? this.services.map((service) => {
-                return service.toJSON();
+                return service.toObject();
             }) : undefined
         };
     }
