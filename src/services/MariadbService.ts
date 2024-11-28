@@ -19,7 +19,6 @@ import {Service, ServiceProps} from "../makes/Service";
 
 @Injectable()
 export class MariadbService {
-    protected containerAdminName = "dbadmin-mariadb.workspace";
     protected config?: Config;
 
     public constructor(
@@ -287,7 +286,7 @@ export class MariadbService {
             servers.push(service);
         }
 
-        await this.dockerService.removeContainer(this.containerAdminName);
+        await this.dockerService.removeContainer(config.adminHostname);
 
         if(servers.length === 0) {
             return;
@@ -337,17 +336,17 @@ export class MariadbService {
             await this.pluginConfigService.mkdir("upload", {recursive: true});
         }
 
-        let container = await this.dockerService.getContainer(this.containerAdminName);
+        let container = await this.dockerService.getContainer(config.adminHostname);
 
         if(!container) {
             await this.dockerService.pullImage("phpmyadmin/phpmyadmin:latest");
 
             container = await this.dockerService.createContainer({
-                name: this.containerAdminName,
+                name: config.adminHostname,
                 image: "phpmyadmin/phpmyadmin:latest",
                 restart: "always",
                 env: {
-                    VIRTUAL_HOST: this.containerAdminName,
+                    VIRTUAL_HOST: config.adminHostname,
                     VIRTUAL_PORT: "80",
                     PMA_USER: "root",
                     PMA_PASSWORD: config.rootPassword || ""
@@ -368,7 +367,7 @@ export class MariadbService {
 
         if(!Running) {
             await container.start();
-            await this.dockerService.exec(this.containerAdminName, [
+            await this.dockerService.exec(config.adminHostname, [
                 "bash", "-c",
                 [
                     "apt-get update",
