@@ -49,12 +49,12 @@ export class MariadbController {
     public async create(
         @Param("service")
         service?: string,
-        @Option("user", {
+        @Option("username", {
             type: "string",
             alias: "u",
             description: "User name"
         })
-        user?: string,
+        username?: string,
         @Option("password", {
             type: "string",
             alias: "p",
@@ -70,7 +70,7 @@ export class MariadbController {
     ): Promise<void> {
         await this.mariadbService.create({
             name: service,
-            user,
+            username,
             password,
             host
         });

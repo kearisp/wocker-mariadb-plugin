@@ -3,7 +3,7 @@ import {PickProperties} from "@wocker/core";
 import {Service, ServiceProps} from "./Service";
 
 
-type ConfigProps = Omit<PickProperties<Config>, "services"> & {
+export type ConfigProps = Omit<PickProperties<Config>, "services"> & {
     services?: ServiceProps[];
 };
 

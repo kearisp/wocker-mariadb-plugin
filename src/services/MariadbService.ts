@@ -5,8 +5,7 @@ import {
     PluginConfigService,
     DockerService,
     FS,
-    FileSystem,
-    PickProperties
+    FileSystem
 } from "@wocker/core";
 import {promptConfirm, promptSelect, promptText} from "@wocker/utils";
 import {existsSync} from "fs";
@@ -14,7 +13,7 @@ import * as Path from "path";
 import CliTable from "cli-table3";
 import dateFormat from "date-fns/format";
 
-import {Config} from "../makes/Config";
+import {Config, ConfigProps} from "../makes/Config";
 import {Service, ServiceProps} from "../makes/Service";
 
 
@@ -39,8 +38,8 @@ export class MariadbService {
 
         const cmd = ["mariadb", "-e", query];
 
-        if(service.user) {
-            cmd.push(`-u${service.user}`);
+        if(service.username) {
+            cmd.push(`-u${service.username}`);
         }
 
         if(service.password) {
@@ -160,7 +159,7 @@ export class MariadbService {
             table.push([
                 service.name + (config.default === service.name ? " (default)" : ""),
                 service.host ? service.host : service.containerName,
-                service.user,
+                service.username,
                 !!service.host,
                 !service.host ? service.storage : "",
                 ip || "-"
@@ -236,8 +235,10 @@ export class MariadbService {
                 image: "mariadb:latest",
                 restart: "always",
                 env: {
-                    ...service.user ? {
-                        MARIADB_USER: service.user
+                    VIRTUAL_STREAM: service.containerName,
+                    VIRTUAL_PORT: "3306",
+                    ...service.username ? {
+                        MARIADB_USER: service.username
                     } : {},
                     ...service.password ? {
                         MARIADB_PASSWORD: service.password,
@@ -247,7 +248,10 @@ export class MariadbService {
                         MARIADB_ROOT_PASSWORD_HASH: service.passwordHash
                     } : {}
                 },
-                volumes
+                volumes,
+                aliases: [
+                    service.containerName
+                ]
             });
         }
 
@@ -307,14 +311,14 @@ export class MariadbService {
                 `$cfg['Servers'][$i]['host'] = '${host}';`
             ];
 
-            if(service.user && service.password) {
+            if(service.username && service.password) {
                 res.push(`$cfg['Servers'][$i]['auth_type'] = 'config';`);
-                res.push(`$cfg['Servers'][$i]['user'] = '${service.user}';`);
+                res.push(`$cfg['Servers'][$i]['user'] = '${service.username}';`);
                 res.push(`$cfg['Servers'][$i]['password'] = '${service.password}';`);
             }
-            else if(service.user) {
+            else if(service.username) {
                 res.push(`$cfg['Servers'][$i]['auth_type'] = 'cookie';`);
-                res.push(`$cfg['Servers'][$i]['user'] = '${service.user}';`);
+                res.push(`$cfg['Servers'][$i]['user'] = '${service.username}';`);
             }
 
             return res.join("\n");
@@ -416,8 +420,8 @@ export class MariadbService {
             });
         }
 
-        if(!service.user) {
-            service.user = await promptText({
+        if(!service.username) {
+            service.username = await promptText({
                 message: "User:",
                 required: true
             });
@@ -480,6 +484,11 @@ export class MariadbService {
                 case "volume": {
                     if(!this.appConfigService.isVersionGTE || !this.appConfigService.isVersionGTE("1.0.19")) {
                         throw new Error("Please update wocker for using volume storage");
+                    }
+
+                    if(service.volume !== service.defaultVolume) {
+                        console.info(`Deletion of custom volume "${service.volume}" skipped.`);
+                        break;
                     }
 
                     if(await this.dockerService.hasVolume(service.volumeName)) {
@@ -553,8 +562,8 @@ export class MariadbService {
 
         const cmd = ["mariadb"];
 
-        if(service.user) {
-            cmd.push(`-u${service.user}`);
+        if(service.username) {
+            cmd.push(`-u${service.username}`);
         }
 
         if(service.password) {
@@ -630,8 +639,8 @@ export class MariadbService {
 
         const cmd = ["mariadb-dump", database as string, "--add-drop-table", "--hex-blob"];
 
-        if(service.user) {
-            cmd.push(`-u${service.user}`);
+        if(service.username) {
+            cmd.push(`-u${service.username}`);
         }
 
         if(service.password) {
@@ -750,8 +759,8 @@ export class MariadbService {
 
         const cmd = ["mariadb", database as string];
 
-        if(service.user) {
-            cmd.push(`-u${service.user}`);
+        if(service.username) {
+            cmd.push(`-u${service.username}`);
         }
 
         if(service.password) {
@@ -816,8 +825,8 @@ export class MariadbService {
 
         const cmd = ["mariadb-dump", database as string, "--add-drop-table"];
 
-        if(service.user) {
-            cmd.push(`-u${service.user}`);
+        if(service.username) {
+            cmd.push(`-u${service.username}`);
         }
 
         if(service.password) {
@@ -840,13 +849,13 @@ export class MariadbService {
 
     public async getConfig(): Promise<Config> {
         if(!this.config) {
-            let data: PickProperties<Config> = !existsSync(this.pluginConfigService.dataPath(this.configPath))
+            let data: ConfigProps = !existsSync(this.pluginConfigService.dataPath(this.configPath))
                 ? {
                     default: "default",
                     services: [
                         {
                             name: "default",
-                            user: "root",
+                            username: "root",
                             password: "root",
                             storage: "volume"
                         }
