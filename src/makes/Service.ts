@@ -12,6 +12,7 @@ export type ServiceProps = ConfigProperties & {
     username?: string;
     password?: string;
     passwordHash?: string;
+    rootPassword?: string;
     storage?: ServiceStorageType;
     volume?: string;
 };
@@ -21,6 +22,7 @@ export class Service extends Config<ServiceProps> {
     public username?: string;
     public password?: string;
     public passwordHash?: string;
+    public rootPassword?: string;
     public storage?: ServiceStorageType;
     public volume?: string;
 
@@ -33,6 +35,7 @@ export class Service extends Config<ServiceProps> {
             username,
             password,
             passwordHash,
+            rootPassword,
             storage,
             volume
         } = data;
@@ -41,6 +44,7 @@ export class Service extends Config<ServiceProps> {
         this.username = username || user;
         this.password = password;
         this.passwordHash = passwordHash;
+        this.rootPassword = rootPassword || password;
         this.storage = storage;
         this.volume = volume;
 
