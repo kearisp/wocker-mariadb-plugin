@@ -1,7 +1,8 @@
 import {
     Controller,
-    Completion,
     Command,
+    Description,
+    Completion,
     Option,
     Param
 } from "@wocker/core";
@@ -10,6 +11,7 @@ import {
     DockerService
 } from "@wocker/core";
 
+import {ServiceStorageType} from "../makes/Service";
 import {MariadbService} from "../services/MariadbService";
 
 
@@ -22,12 +24,14 @@ export class MariadbController {
     ) {}
 
     @Command("mariadb [service]")
+    @Description("Interacts with a specified MariaDB service, optionally targeting a specific database within that service.")
     public async mariadb(
         @Param("service")
         service?: string,
         @Option("database", {
             type: "string",
-            alias: "d"
+            alias: "d",
+            description: "<name> Specify the database to target within the service"
         })
         database?: string
     ): Promise<void> {
@@ -46,33 +50,48 @@ export class MariadbController {
     }
 
     @Command("mariadb:create [service]")
+    @Description("Creates a MariaDB service with configurable credentials, host, and storage options.")
     public async create(
         @Param("service")
-        service?: string,
-        @Option("user", {
+        name?: string,
+        @Option("username", {
             type: "string",
             alias: "u",
             description: "User name"
         })
-        user?: string,
+        username?: string,
         @Option("password", {
             type: "string",
             alias: "p",
             description: "Password"
         })
         password?: string,
+        @Option("root-password", {
+            type: "string",
+            alias: "P",
+            description: "Root password"
+        })
+        rootPassword?: string,
         @Option("host", {
             type: "string",
             alias: "h",
             description: "External host"
         })
-        host?: string
+        host?: string,
+        @Option("storage", {
+            type: "string",
+            alias: "s",
+            description: "Storage type"
+        })
+        storage?: ServiceStorageType
     ): Promise<void> {
         await this.mariadbService.create({
-            name: service,
-            user,
+            name,
+            username,
             password,
-            host
+            rootPassword,
+            host,
+            storage
         });
 
         if(host) {
@@ -81,6 +100,7 @@ export class MariadbController {
     }
 
     @Command("mariadb:destroy [service]")
+    @Description("Destroys a specified MariaDB service instance with an option to force deletion.")
     public async destroy(
         @Param("service")
         service?: string,
@@ -96,6 +116,7 @@ export class MariadbController {
     }
 
     @Command("mariadb:use [service]")
+    @Description("Sets a specified MariaDB service as the default or retrieves the current default service name if no service is specified.")
     public async default(
         @Param("service")
         service?: string
@@ -114,12 +135,14 @@ export class MariadbController {
     }
 
     @Command("mariadb:start [service]")
+    @Description("Starts a specified MariaDB service and optionally restarts it if already running.")
     public async start(
         @Param("service")
         service?: string,
         @Option("restart", {
             type: "boolean",
-            alias: "r"
+            alias: "r",
+            description: "Restart the service if already running"
         })
         restart?: boolean
     ): Promise<void> {
@@ -128,6 +151,7 @@ export class MariadbController {
     }
 
     @Command("mariadb:stop [service]")
+    @Description("Stops a specified MariaDB service instance.")
     public async stop(
         @Param("service")
         service?: string

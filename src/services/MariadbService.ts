@@ -5,22 +5,19 @@ import {
     PluginConfigService,
     DockerService,
     FS,
-    FileSystem,
-    PickProperties
+    FileSystem
 } from "@wocker/core";
 import {promptConfirm, promptSelect, promptText} from "@wocker/utils";
-import {existsSync} from "fs";
 import * as Path from "path";
 import CliTable from "cli-table3";
 import dateFormat from "date-fns/format";
 
-import {Config} from "../makes/Config";
-import {Service, ServiceProps} from "../makes/Service";
+import {Config, ConfigProps} from "../makes/Config";
+import {Service, ServiceProps, ServiceStorageType, STORAGE_VOLUME, STORAGE_FILESYSTEM} from "../makes/Service";
 
 
 @Injectable()
 export class MariadbService {
-    protected containerAdminName = "dbadmin-mariadb.workspace";
     protected config?: Config;
 
     public constructor(
@@ -29,6 +26,20 @@ export class MariadbService {
         protected readonly dockerService: DockerService,
         protected readonly proxyService: ProxyService
     ) {}
+
+    public get fs(): FileSystem {
+        let fs = this.pluginConfigService.fs;
+
+        if(!fs) {
+            fs = new FileSystem(this.pluginConfigService.dataPath());
+        }
+
+        return fs;
+    }
+
+    public get dbFs(): FileSystem {
+        return new FileSystem(this.appConfigService.dataPath("db/mariadb"));
+    }
 
     protected async query(service: Service, query: string): Promise<string | null> {
         const container = await this.dockerService.getContainer(service.containerName);
@@ -39,12 +50,21 @@ export class MariadbService {
 
         const cmd = ["mariadb", "-e", query];
 
-        if(service.user) {
-            cmd.push(`-u${service.user}`);
-        }
+        if(!service.host) {
+            cmd.push(`-uroot`);
 
-        if(service.password) {
-            cmd.push(`-p${service.password}`);
+            if(service.rootPassword) {
+                cmd.push(`-p${service.rootPassword}`);
+            }
+        }
+        else {
+            if(service.username) {
+                cmd.push(`-u${service.username}`);
+            }
+
+            if(service.password) {
+                cmd.push(`-p${service.password}`);
+            }
         }
 
         const exec = await container.exec({
@@ -55,7 +75,7 @@ export class MariadbService {
 
         const stream = await exec.start({});
 
-        return new Promise((resolve, reject) => {
+        return new Promise<string>((resolve, reject) => {
             let result = "";
 
             stream.on("data", (data: any) => {
@@ -90,27 +110,23 @@ export class MariadbService {
     }
 
     protected async getDumpsDatabases(service: Service): Promise<string[]> {
-        if(!this.pluginConfigService.exists(`dump/${service.name}`)) {
+        if(!this.fs.exists(`dump/${service.name}`)) {
             return [];
         }
 
-        return this.pluginConfigService.readdir(`dump/${service.name}`);
+        return this.fs.readdir(`dump/${service.name}`);
     }
 
     protected async getFiles(service: Service, database: string): Promise<string[]> {
-        if(!this.pluginConfigService.exists(`dump/${service.name}/${database}`)) {
+        if(!this.fs.exists(`dump/${service.name}/${database}`)) {
             return [];
         }
 
-        return this.pluginConfigService.readdir(`dump/${service.name}/${database}`);
+        return this.fs.readdir(`dump/${service.name}/${database}`);
     }
 
     public get configPath(): string {
         return "config.json";
-    }
-
-    protected getDbDir(service: string): string {
-        return this.appConfigService.dataPath("db/mariadb", service);
     }
 
     public async init(rootPassword?: string): Promise<void> {
@@ -160,7 +176,7 @@ export class MariadbService {
             table.push([
                 service.name + (config.default === service.name ? " (default)" : ""),
                 service.host ? service.host : service.containerName,
-                service.user,
+                service.username,
                 !!service.host,
                 !service.host ? service.storage : "",
                 ip || "-"
@@ -218,15 +234,13 @@ export class MariadbService {
 
                 case "filesystem":
                 default: {
-                    const fs = new FileSystem(this.appConfigService.dataPath("db/mariadb"));
-
-                    if(!fs.exists(service.name)) {
-                        fs.mkdir(service.name, {
+                    if(!this.dbFs.exists(service.name)) {
+                        this.dbFs.mkdir(service.name, {
                             recursive: true
                         });
                     }
 
-                    volumes.push(`${this.getDbDir(service.name)}:/var/lib/mysql`);
+                    volumes.push(`${this.dbFs.path(service.name)}:/var/lib/mysql`);
                     break;
                 }
             }
@@ -236,18 +250,25 @@ export class MariadbService {
                 image: "mariadb:latest",
                 restart: "always",
                 env: {
-                    ...service.user ? {
-                        MARIADB_USER: service.user
+                    VIRTUAL_STREAM: service.containerName,
+                    VIRTUAL_PORT: "3306",
+                    ...service.username ? {
+                        MARIADB_USER: service.username
                     } : {},
                     ...service.password ? {
-                        MARIADB_PASSWORD: service.password,
-                        MARIADB_ROOT_PASSWORD: service.password
+                        MARIADB_PASSWORD: service.password
                     } : {},
                     ...service.passwordHash ? {
                         MARIADB_ROOT_PASSWORD_HASH: service.passwordHash
+                    } : {},
+                    ...service.rootPassword ? {
+                        MARIADB_ROOT_PASSWORD: service.rootPassword
                     } : {}
                 },
-                volumes
+                volumes,
+                // aliases: [
+                //     service.containerName
+                // ]
             });
         }
 
@@ -283,7 +304,7 @@ export class MariadbService {
             servers.push(service);
         }
 
-        await this.dockerService.removeContainer(this.containerAdminName);
+        await this.dockerService.removeContainer(config.adminHostname);
 
         if(servers.length === 0) {
             return;
@@ -302,56 +323,51 @@ export class MariadbService {
         file = file.toString() + servers.map((service) => {
             const host = service.host || service.containerName;
 
+            const user = service.host ? service.username : "root";
+            const password = service.host ? service.password : service.rootPassword;
+
             const res = [
                 `$i++;`,
                 `$cfg['Servers'][$i]['host'] = '${host}';`
             ];
 
-            if(service.user && service.password) {
+            if(user && password) {
                 res.push(`$cfg['Servers'][$i]['auth_type'] = 'config';`);
-                res.push(`$cfg['Servers'][$i]['user'] = '${service.user}';`);
-                res.push(`$cfg['Servers'][$i]['password'] = '${service.password}';`);
+                res.push(`$cfg['Servers'][$i]['user'] = '${user}';`);
+                res.push(`$cfg['Servers'][$i]['password'] = '${password}';`);
             }
-            else if(service.user) {
+            else if(user) {
                 res.push(`$cfg['Servers'][$i]['auth_type'] = 'cookie';`);
-                res.push(`$cfg['Servers'][$i]['user'] = '${service.user}';`);
+                res.push(`$cfg['Servers'][$i]['user'] = '${user}';`);
             }
 
             return res.join("\n");
         }).join("\n");
 
-        if(this.appConfigService.isVersionGTE && this.appConfigService.isVersionGTE("1.0.19")) {
-            await this.pluginConfigService.fs.writeFile("config.user.inc.php", file);
-            this.pluginConfigService.fs.mkdir("dump", {recursive: true});
-            this.pluginConfigService.fs.mkdir("save", {recursive: true});
-            this.pluginConfigService.fs.mkdir("upload", {recursive: true});
-        }
-        else {
-            await this.pluginConfigService.writeFile("config.user.inc.php", file);
-            await this.pluginConfigService.mkdir("dump", {recursive: true});
-            await this.pluginConfigService.mkdir("save", {recursive: true});
-            await this.pluginConfigService.mkdir("upload", {recursive: true});
-        }
+        await this.fs.writeFile("config.user.inc.php", file);
+        this.fs.mkdir("dump", {recursive: true});
+        this.fs.mkdir("save", {recursive: true});
+        this.fs.mkdir("upload", {recursive: true});
 
-        let container = await this.dockerService.getContainer(this.containerAdminName);
+        let container = await this.dockerService.getContainer(config.adminHostname);
 
         if(!container) {
             await this.dockerService.pullImage("phpmyadmin/phpmyadmin:latest");
 
             container = await this.dockerService.createContainer({
-                name: this.containerAdminName,
+                name: config.adminHostname,
                 image: "phpmyadmin/phpmyadmin:latest",
                 restart: "always",
                 env: {
-                    VIRTUAL_HOST: this.containerAdminName,
+                    VIRTUAL_HOST: config.adminHostname,
                     VIRTUAL_PORT: "80",
                     PMA_USER: "root",
                     PMA_PASSWORD: config.rootPassword || ""
                 },
                 volumes: [
-                    `${this.pluginConfigService.dataPath("config.user.inc.php")}:/etc/phpmyadmin/config.user.inc.php`,
-                    `${this.pluginConfigService.dataPath("save")}:/etc/phpmyadmin/save`,
-                    `${this.pluginConfigService.dataPath("upload")}:/etc/phpmyadmin/upload`
+                    `${this.fs.path("config.user.inc.php")}:/etc/phpmyadmin/config.user.inc.php`,
+                    `${this.fs.path("save")}:/etc/phpmyadmin/save`,
+                    `${this.fs.path("upload")}:/etc/phpmyadmin/upload`
                 ]
             });
         }
@@ -364,7 +380,7 @@ export class MariadbService {
 
         if(!Running) {
             await container.start();
-            await this.dockerService.exec(this.containerAdminName, [
+            await this.dockerService.exec(config.adminHostname, [
                 "bash", "-c",
                 [
                     "apt-get update",
@@ -397,10 +413,11 @@ export class MariadbService {
 
         if(service.name && config.getService(service.name)) {
             console.info(`Service "${service.name}" is already exists`);
+            delete service.name;
         }
 
         if(!service.name) {
-            await promptText({
+            service.name = await promptText({
                 message: "Service name:",
                 validate(value) {
                     if(!value) {
@@ -416,8 +433,8 @@ export class MariadbService {
             });
         }
 
-        if(!service.user) {
-            service.user = await promptText({
+        if(!service.username) {
+            service.username = await promptText({
                 message: "User:",
                 required: true
             });
@@ -440,11 +457,31 @@ export class MariadbService {
             }
         }
 
-        if(!service.storage) {
-            service.storage = await promptSelect<any>({
-                message: "Storage:",
-                options: ["volume", "filesystem"]
-            });
+        if(!service.host) {
+            if(!service.rootPassword && service.username !== "root") {
+                service.rootPassword = await promptText({
+                    message: "Root password:",
+                    type: "password",
+                    required: true
+                });
+
+                const confirmPassword = await promptText({
+                    message: "Confirm root password:",
+                    type: "password",
+                    required: true
+                });
+
+                if(service.rootPassword !== confirmPassword) {
+                    throw new Error("Password didn't match");
+                }
+            }
+
+            if(!service.storage || ![STORAGE_VOLUME, STORAGE_FILESYSTEM].includes(service.storage)) {
+                service.storage = await promptSelect<ServiceStorageType>({
+                    message: "Storage:",
+                    options: [STORAGE_VOLUME, STORAGE_FILESYSTEM]
+                });
+            }
         }
 
         config.setService(service.name as string, service);
@@ -469,8 +506,20 @@ export class MariadbService {
             throw new Error(`Service ${name} not found`);
         }
 
-        if(config.default === service.name && !force) {
-            throw new Error("Can't destroy default service");
+        if(config.default === service.name) {
+            if(!force) {
+                throw new Error("Can't destroy default service");
+            }
+
+            const confirm = await promptConfirm({
+                message: `Are you sure you want to delete the "${name}" database? This action cannot be undone and all data will be lost.`,
+            });
+
+            if(!confirm) {
+                throw new Error("Aborted");
+            }
+
+            delete config.default;
         }
 
         if(!service.host) {
@@ -478,6 +527,11 @@ export class MariadbService {
 
             switch(service.storage) {
                 case "volume": {
+                    if(service.volumeName !== service.defaultVolume) {
+                        console.info(`Deletion of custom volume "${service.volumeName}" skipped.`);
+                        break;
+                    }
+
                     if(!this.appConfigService.isVersionGTE || !this.appConfigService.isVersionGTE("1.0.19")) {
                         throw new Error("Please update wocker for using volume storage");
                     }
@@ -490,17 +544,13 @@ export class MariadbService {
 
                 case "filesystem":
                 default: {
-                    await FS.rm(this.getDbDir(service.name), {
+                    await this.dbFs.rm(service.name, {
                         recursive: true,
                         force: true
                     });
                     break;
                 }
             }
-        }
-
-        if(config.default === name) {
-            config.default = undefined;
         }
 
         config.unsetService(name);
@@ -528,7 +578,9 @@ export class MariadbService {
 
     public async mariadb(name?: string, database?: string): Promise<void> {
         const config = await this.getConfig();
-        const service = name ? config.getService(name) : config.getDefaultService();
+        const service = name
+            ? config.getService(name)
+            : config.getDefaultService();
 
         if(!service) {
             throw new Error("Service not found");
@@ -553,12 +605,21 @@ export class MariadbService {
 
         const cmd = ["mariadb"];
 
-        if(service.user) {
-            cmd.push(`-u${service.user}`);
-        }
+        if(!service.host) {
+            cmd.push(`-uroot`);
 
-        if(service.password) {
-            cmd.push(`-p${service.password}`);
+            if(service.rootPassword) {
+                cmd.push(`-p${service.rootPassword}`);
+            }
+        }
+        else {
+            if(service.username) {
+                cmd.push(`-u${service.username}`);
+            }
+
+            if(service.password) {
+                cmd.push(`-p${service.password}`);
+            }
         }
 
         if(database) {
@@ -626,16 +687,25 @@ export class MariadbService {
             recursive: true
         });
 
-        const file = this.pluginConfigService.createWriteSteam(`dump/${service.name}/${database}/${filename}`);
+        const file = this.fs.createWriteStream(`dump/${service.name}/${database}/${filename}`);
 
         const cmd = ["mariadb-dump", database as string, "--add-drop-table", "--hex-blob"];
 
-        if(service.user) {
-            cmd.push(`-u${service.user}`);
-        }
+        if(!service.host) {
+            cmd.push(`-uroot`);
 
-        if(service.password) {
-            cmd.push(`-p${service.password}`);
+            if(service.rootPassword) {
+                cmd.push(`-p${service.rootPassword}`);
+            }
+        }
+        else {
+            if(service.username) {
+                cmd.push(`-u${service.username}`);
+            }
+
+            if(service.password) {
+                cmd.push(`-p${service.password}`);
+            }
         }
 
         const exec = await container.exec({
@@ -692,7 +762,7 @@ export class MariadbService {
 
         const path = `dump/${service.name}/${database}/${filename}`;
 
-        if(!this.pluginConfigService.exists(path)) {
+        if(!this.fs.exists(path)) {
             throw new Error(`File "${filename}" does not exists.`)
         }
 
@@ -707,7 +777,7 @@ export class MariadbService {
             throw new Error("Canceled");
         }
 
-        await this.pluginConfigService.rm(path);
+        await this.fs.rm(path);
 
         console.info(`File "${filename}" deleted`);
 
@@ -750,12 +820,21 @@ export class MariadbService {
 
         const cmd = ["mariadb", database as string];
 
-        if(service.user) {
-            cmd.push(`-u${service.user}`);
-        }
+        if(!service.host) {
+            cmd.push(`-uroot`);
 
-        if(service.password) {
-            cmd.push(`-p${service.password}`);
+            if(service.rootPassword) {
+                cmd.push(`-p${service.rootPassword}`);
+            }
+        }
+        else {
+            if(service.username) {
+                cmd.push(`-u${service.username}`);
+            }
+
+            if(service.password) {
+                cmd.push(`-p${service.password}`);
+            }
         }
 
         const exec = await container.exec({
@@ -771,7 +850,7 @@ export class MariadbService {
         });
 
         await new Promise((resolve, reject) => {
-            const file = this.pluginConfigService.createReadStream(`dump/${service.name}/${database}/${filename}`);
+            const file = this.fs.createReadStream(`dump/${service.name}/${database}/${filename}`);
 
             file.on("data", (data) => {
                 stream.write(data);
@@ -816,12 +895,21 @@ export class MariadbService {
 
         const cmd = ["mariadb-dump", database as string, "--add-drop-table"];
 
-        if(service.user) {
-            cmd.push(`-u${service.user}`);
-        }
+        if(!service.host) {
+            cmd.push(`-uroot`);
 
-        if(service.password) {
-            cmd.push(`-p${service.password}`);
+            if(service.rootPassword) {
+                cmd.push(`-p${service.rootPassword}`);
+            }
+        }
+        else {
+            if(service.username) {
+                cmd.push(`-u${service.username}`);
+            }
+
+            if(service.password) {
+                cmd.push(`-p${service.password}`);
+            }
         }
 
         const exec = await container.exec({
@@ -838,27 +926,29 @@ export class MariadbService {
         stream.pipe(process.stdout);
     }
 
-    public async getConfig(): Promise<Config> {
+    public getConfig(): Config {
         if(!this.config) {
-            let data: PickProperties<Config> = !existsSync(this.pluginConfigService.dataPath(this.configPath))
+            const fs = this.fs;
+
+            let data: ConfigProps = !fs.exists(this.configPath)
                 ? {
                     default: "default",
                     services: [
                         {
                             name: "default",
-                            user: "root",
+                            username: "root",
                             password: "root",
                             storage: "volume"
                         }
                     ]
                 }
-                : await this.pluginConfigService.readJSON(this.configPath);
+                : fs.readJSON(this.configPath);
 
             const _this = this;
 
             this.config = new class extends Config {
                 public async save(): Promise<void> {
-                    await _this.pluginConfigService.writeJSON(_this.configPath, this.toJSON());
+                    fs.writeJSON(_this.configPath, this.toJSON());
                 }
             }(data);
         }

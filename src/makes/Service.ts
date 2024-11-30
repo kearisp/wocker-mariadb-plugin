@@ -1,35 +1,55 @@
-import {PickProperties} from "@wocker/core";
+import {Config, ConfigProperties} from "@wocker/core";
 
 
-export type ServiceProps = Omit<PickProperties<Service>, "containerName" | "volumeName">;
+export const STORAGE_FILESYSTEM = "filesystem";
+export const STORAGE_VOLUME = "volume";
 
-export class Service {
-    public name: string;
-    public user?: string;
+export type ServiceStorageType = typeof STORAGE_FILESYSTEM | typeof STORAGE_VOLUME;
+
+export type ServiceProps = ConfigProperties & {
+    host?: string;
+    user?: string;
+    username?: string;
+    password?: string;
+    passwordHash?: string;
+    rootPassword?: string;
+    storage?: ServiceStorageType;
+    volume?: string;
+};
+
+export class Service extends Config<ServiceProps> {
+    public host?: string;
+    public username?: string;
     public password?: string;
     public passwordHash?: string;
-    public host?: string;
-    public storage?: "filesystem" | "volume";
+    public rootPassword?: string;
+    public storage?: ServiceStorageType;
+    public volume?: string;
 
     public constructor(data: ServiceProps) {
+        super(data);
+
         const {
-            name,
+            host,
             user,
+            username,
             password,
             passwordHash,
+            rootPassword,
             storage,
-            host
+            volume
         } = data;
 
-        this.name = name;
-        this.user = user;
+        this.host = host;
+        this.username = username || user;
         this.password = password;
         this.passwordHash = passwordHash;
+        this.rootPassword = rootPassword || password;
         this.storage = storage;
-        this.host = host;
+        this.volume = volume;
 
-        if(!storage && !host) {
-            this.storage = "filesystem";
+        if(!host && !storage) {
+            this.storage = STORAGE_FILESYSTEM;
         }
     }
 
@@ -38,17 +58,14 @@ export class Service {
     }
 
     public get volumeName(): string {
-        return `wocker-mariadb-${this.name}`;
+        if(!this.volume) {
+            return this.defaultVolume;
+        }
+
+        return this.volume;
     }
 
-    public toJSON(): ServiceProps {
-        return {
-            name: this.name,
-            user: this.user,
-            password: this.password,
-            passwordHash: this.passwordHash,
-            storage: this.storage,
-            host: this.host
-        };
+    public get defaultVolume(): string {
+        return `wocker-mariadb-${this.name}`;
     }
 }
