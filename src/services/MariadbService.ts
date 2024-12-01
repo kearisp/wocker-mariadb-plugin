@@ -37,6 +37,10 @@ export class MariadbService {
         return fs;
     }
 
+    public get dataFs(): FileSystem {
+        return new FileSystem(Path.join(__dirname, "../../data"));
+    }
+
     public get dbFs(): FileSystem {
         return new FileSystem(this.appConfigService.dataPath("db/mariadb"));
     }
@@ -250,8 +254,6 @@ export class MariadbService {
                 image: "mariadb:latest",
                 restart: "always",
                 env: {
-                    VIRTUAL_STREAM: service.containerName,
-                    VIRTUAL_PORT: "3306",
                     ...service.username ? {
                         MARIADB_USER: service.username
                     } : {},
@@ -513,6 +515,7 @@ export class MariadbService {
 
             const confirm = await promptConfirm({
                 message: `Are you sure you want to delete the "${name}" database? This action cannot be undone and all data will be lost.`,
+                default: false
             });
 
             if(!confirm) {
