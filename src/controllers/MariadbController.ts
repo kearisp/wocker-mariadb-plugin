@@ -83,7 +83,19 @@ export class MariadbController {
             alias: "s",
             description: "Storage type"
         })
-        storage?: ServiceStorageType
+        storage?: ServiceStorageType,
+        @Option("image", {
+            type: "string",
+            alias: "i",
+            description: "The image name to start the service with"
+        })
+        image?: string,
+        @Option("image-version", {
+            type: "string",
+            alias: "I",
+            description: "The image version to start the service with"
+        })
+        imageVersion?: string
     ): Promise<void> {
         await this.mariadbService.create({
             name,
@@ -91,7 +103,9 @@ export class MariadbController {
             password,
             rootPassword,
             host,
-            storage
+            storage,
+            image,
+            imageVersion
         });
 
         if(host) {
@@ -113,6 +127,24 @@ export class MariadbController {
     ): Promise<void> {
         await this.mariadbService.destroy(service, force);
         await this.mariadbService.startAdmin();
+    }
+
+    @Command("mariadb:upgrade [name]")
+    public async upgrade(
+        @Param("name")
+        name?: string,
+        @Option("image", {
+            type: "string",
+            alias: "i"
+        })
+        image?: string,
+        @Option("image-version", {
+            type: "string",
+            alias: "I"
+        })
+        imageVersion?: string
+    ) {
+
     }
 
     @Command("mariadb:use [service]")
