@@ -18,7 +18,7 @@ import {Service, ServiceProps, ServiceStorageType, STORAGE_VOLUME, STORAGE_FILES
 
 @Injectable()
 export class MariadbService {
-    protected config?: Config;
+    protected _config?: Config;
 
     public constructor(
         protected readonly appConfigService: AppConfigService,
@@ -26,6 +26,26 @@ export class MariadbService {
         protected readonly dockerService: DockerService,
         protected readonly proxyService: ProxyService
     ) {}
+
+    public get configPath(): string {
+        return "config.json";
+    }
+
+    public get config(): Config {
+        if(!this._config) {
+            const _this = this,
+                fs = this.fs,
+                data: ConfigProps = fs.exists(this.configPath) ? fs.readJSON(this.configPath) : {};
+
+            this._config = new class extends Config {
+                public save(): void {
+                    fs.writeJSON(_this.configPath, this.toJSON());
+                }
+            }(data);
+        }
+
+        return this._config;
+    }
 
     public get fs(): FileSystem {
         let fs = this.pluginConfigService.fs;
@@ -37,12 +57,12 @@ export class MariadbService {
         return fs;
     }
 
-    public get dataFs(): FileSystem {
-        return new FileSystem(Path.join(__dirname, "../../data"));
-    }
-
     public get dbFs(): FileSystem {
         return new FileSystem(this.appConfigService.dataPath("db/mariadb"));
+    }
+
+    public get dataFs(): FileSystem {
+        return new FileSystem(Path.join(__dirname, "../../data"));
     }
 
     protected async query(service: Service, query: string): Promise<string | null> {
@@ -129,12 +149,8 @@ export class MariadbService {
         return this.fs.readdir(`dump/${service.name}/${database}`);
     }
 
-    public get configPath(): string {
-        return "config.json";
-    }
-
     public async init(rootPassword?: string): Promise<void> {
-        const config = await this.getConfig();
+        const config = this.config;
 
         if(!rootPassword) {
             rootPassword = await promptText({
@@ -149,7 +165,7 @@ export class MariadbService {
     }
 
     public async list(): Promise<string> {
-        const config = await this.getConfig();
+        const config = this.config;
 
         const table = new CliTable({
             head: ["Name", "Host", "User", "External", "Storage", "IP"]
@@ -191,9 +207,7 @@ export class MariadbService {
     }
 
     public async getServices(): Promise<string[]> {
-        const config = await this.getConfig();
-
-        return (config.services || []).map((service) => {
+        return (this.config.services || []).map((service) => {
             return service.name;
         });
     }
@@ -288,7 +302,7 @@ export class MariadbService {
     public async startAdmin(): Promise<void> {
         console.info("Phpmyadmin starting...");
 
-        const config = await this.getConfig();
+        const config = this.config;
 
         const servers: Service[] = [];
 
@@ -396,7 +410,7 @@ export class MariadbService {
     }
 
     public async stop(name?: string): Promise<void> {
-        const config = await this.getConfig();
+        const config = this.config;
         const service = name
             ? config.getService(name)
             : config.getDefaultService();
@@ -411,7 +425,7 @@ export class MariadbService {
     }
 
     public async create(service: Partial<ServiceProps>): Promise<void> {
-        const config = await this.getConfig();
+        const config = this.config;
 
         if(service.name && config.getService(service.name)) {
             console.info(`Service "${service.name}" is already exists`);
@@ -493,6 +507,10 @@ export class MariadbService {
         }
 
         await config.save();
+    }
+
+    public async upgrade(name?: string): Promise<void> {
+        // const service = this.config.getService(name);
     }
 
     public async destroy(name?: string, force?: boolean): Promise<void> {
@@ -929,33 +947,10 @@ export class MariadbService {
         stream.pipe(process.stdout);
     }
 
+    /**
+     * @deprecated
+     */
     public getConfig(): Config {
-        if(!this.config) {
-            const fs = this.fs;
-
-            let data: ConfigProps = !fs.exists(this.configPath)
-                ? {
-                    default: "default",
-                    services: [
-                        {
-                            name: "default",
-                            username: "root",
-                            password: "root",
-                            storage: "volume"
-                        }
-                    ]
-                }
-                : fs.readJSON(this.configPath);
-
-            const _this = this;
-
-            this.config = new class extends Config {
-                public async save(): Promise<void> {
-                    fs.writeJSON(_this.configPath, this.toJSON());
-                }
-            }(data);
-        }
-
         return this.config;
     }
 

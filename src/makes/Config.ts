@@ -1,4 +1,4 @@
-import {PickProperties} from "@wocker/core";
+import {PickProperties, ConfigCollection} from "@wocker/core";
 
 import {Service, ServiceProps} from "./Service";
 
@@ -62,7 +62,7 @@ export abstract class Config {
         });
     }
 
-    public abstract save(): Promise<void>;
+    public abstract save(): void;
 
     public toJSON(): ConfigProps {
         return {

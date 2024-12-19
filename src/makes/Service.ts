@@ -15,6 +15,8 @@ export type ServiceProps = ConfigProperties & {
     rootPassword?: string;
     storage?: ServiceStorageType;
     volume?: string;
+    image?: string;
+    imageVersion?: string;
 };
 
 export class Service extends Config<ServiceProps> {
@@ -25,6 +27,8 @@ export class Service extends Config<ServiceProps> {
     public rootPassword?: string;
     public storage?: ServiceStorageType;
     public volume?: string;
+    public image?: string;
+    public imageVersion?: string;
 
     public constructor(data: ServiceProps) {
         super(data);
@@ -37,7 +41,9 @@ export class Service extends Config<ServiceProps> {
             passwordHash,
             rootPassword,
             storage,
-            volume
+            volume,
+            image,
+            imageVersion
         } = data;
 
         this.host = host;
@@ -47,6 +53,8 @@ export class Service extends Config<ServiceProps> {
         this.rootPassword = rootPassword || password;
         this.storage = storage;
         this.volume = volume;
+        this.image = image;
+        this.imageVersion = imageVersion;
 
         if(!host && !storage) {
             this.storage = STORAGE_FILESYSTEM;
