@@ -1,4 +1,4 @@
-import {PickProperties, ConfigCollection} from "@wocker/core";
+import {PickProperties} from "@wocker/core";
 
 import {Service, ServiceProps} from "./Service";
 
@@ -11,37 +11,48 @@ export type ConfigProps = Omit<PickProperties<Config>, "adminHostname" | "servic
 export abstract class Config {
     public adminHostname: string;
     public default?: string;
-    public rootPassword?: string;
     public services: Service[];
 
     public constructor(data: ConfigProps) {
         const {
             adminHostname,
             default: defaultService,
-            rootPassword,
             services = []
         } = data;
 
         this.adminHostname = adminHostname || "dbadmin-mariadb.workspace";
         this.default = defaultService;
-        this.rootPassword = rootPassword;
         this.services = services.map((s) => {
             return new Service(s);
         });
     }
 
-    public getService(name: string): Service | null {
-        return this.services.find((service) => {
+    public getService(name: string): Service {
+        const service = this.services.find((service) => {
             return service.name === name;
-        }) || null;
+        });
+
+        if(!service) {
+            throw new Error(`Mariadb "${name}" service not found`);
+        }
+
+        return service;
     }
 
-    public getDefaultService(): Service | null {
+    public getDefaultService(): Service {
         if(!this.default) {
-            return null;
+            throw new Error("No services are installed by default");
         }
 
         return this.getService(this.default);
+    }
+
+    public getServiceOrDefault(name?: string): Service {
+        if(!name) {
+            return this.getDefaultService();
+        }
+
+        return this.getService(name);
     }
 
     public setService(name: string, service: Omit<ServiceProps, "name">): void {
@@ -66,8 +77,8 @@ export abstract class Config {
 
     public toJSON(): ConfigProps {
         return {
+            adminHostname: this.adminHostname,
             default: this.default,
-            rootPassword: this.rootPassword,
             services: this.services.length > 0 ? this.services.map((service) => {
                 return service.toObject();
             }) : undefined

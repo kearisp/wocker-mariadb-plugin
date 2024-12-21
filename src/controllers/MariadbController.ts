@@ -40,13 +40,13 @@ export class MariadbController {
 
     @Command("mariadb:init")
     public async init(
-        @Option("root-password", {
+        @Option("admin-hostname", {
             type: "string",
-            alias: "p"
+            alias: "A"
         })
-        rootPassword?: string
+        adminHostname?: string
     ): Promise<void> {
-        await this.mariadbService.init(rootPassword);
+        await this.mariadbService.init(adminHostname);
     }
 
     @Command("mariadb:create [service]")
@@ -143,8 +143,8 @@ export class MariadbController {
             alias: "I"
         })
         imageVersion?: string
-    ) {
-
+    ): Promise<void> {
+        await this.mariadbService.upgrade(name, image, imageVersion);
     }
 
     @Command("mariadb:use [service]")
@@ -154,11 +154,7 @@ export class MariadbController {
         service?: string
     ): Promise<string | undefined> {
         if(!service) {
-            const data = await this.mariadbService.getDefault();
-
-            if(!data) {
-                throw new Error("Default service isn't set");
-            }
+            const data = await this.mariadbService.config.getDefaultService();
 
             return `${data.name}\n`;
         }
@@ -193,12 +189,14 @@ export class MariadbController {
     }
 
     @Command("mariadb:dump [service]")
+    @Description("Creates a dump of the specified MariaDB service with an optional database selection.")
     public async dump(
         @Param("service")
         service?: string,
         @Option("database", {
             type: "string",
-            alias: "d"
+            alias: "d",
+            description: "Name of the database to dump"
         })
         database?: string
     ): Promise<void> {
@@ -206,6 +204,7 @@ export class MariadbController {
     }
 
     @Command("mariadb:backup [service]")
+    @Description("Creates or deletes a database backup for a MariaDB service.")
     public async backup(
         @Param("service")
         service?: string,
@@ -218,19 +217,19 @@ export class MariadbController {
         @Option("delete", {
             type: "boolean",
             alias: "D",
-            description: "Delete backup file"
+            description: "Delete the specified backup file"
         })
         del?: boolean,
         @Option("database", {
             type: "string",
             alias: "d",
-            description: "Database name"
+            description: "Database name to back up"
         })
         database?: string,
         @Option("filename", {
             type: "string",
             alias: "f",
-            description: "File name"
+            description: "Name of the backup file"
         })
         filename?: string
     ): Promise<void> {
@@ -279,7 +278,7 @@ export class MariadbController {
         name?: string
     ): Promise<string[]> {
         try {
-            const service = await this.mariadbService.getService(name);
+            const service = await this.mariadbService.config.getServiceOrDefault(name);
 
             return await this.mariadbService.getDatabases(service);
         }
@@ -303,7 +302,7 @@ export class MariadbController {
     }
 
     @Completion("service")
-    public async getExistsServices(): Promise<string[]> {
+    public getExistsServices(): string[] {
         return this.mariadbService.getServices();
     }
 }

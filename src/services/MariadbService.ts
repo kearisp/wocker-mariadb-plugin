@@ -149,17 +149,18 @@ export class MariadbService {
         return this.fs.readdir(`dump/${service.name}/${database}`);
     }
 
-    public async init(rootPassword?: string): Promise<void> {
+    public async init(adminHostname?: string): Promise<void> {
         const config = this.config;
 
-        if(!rootPassword) {
-            rootPassword = await promptText({
-                message: "Root password:",
-                default: config.rootPassword
-            });
+        if(!adminHostname) {
+            adminHostname = await promptText({
+                message: "Admin hostname:",
+                required: true,
+                default: config.adminHostname
+            }) as string;
         }
 
-        config.rootPassword = rootPassword;
+        config.adminHostname = adminHostname;
 
         await config.save();
     }
@@ -206,7 +207,7 @@ export class MariadbService {
         return table.toString();
     }
 
-    public async getServices(): Promise<string[]> {
+    public getServices(): string[] {
         return (this.config.services || []).map((service) => {
             return service.name;
         });
@@ -217,7 +218,7 @@ export class MariadbService {
     }
 
     public async start(name?: string, restart?: boolean): Promise<void> {
-        const service = await this.getService(name);
+        const service = this.config.getServiceOrDefault(name);
 
         if(service.host) {
             throw new Error("Service is external");
@@ -376,9 +377,7 @@ export class MariadbService {
                 restart: "always",
                 env: {
                     VIRTUAL_HOST: config.adminHostname,
-                    VIRTUAL_PORT: "80",
-                    PMA_USER: "root",
-                    PMA_PASSWORD: config.rootPassword || ""
+                    VIRTUAL_PORT: "80"
                 },
                 volumes: [
                     `${this.fs.path("config.user.inc.php")}:/etc/phpmyadmin/config.user.inc.php`,
@@ -509,8 +508,10 @@ export class MariadbService {
         await config.save();
     }
 
-    public async upgrade(name?: string): Promise<void> {
-        // const service = this.config.getService(name);
+    public async upgrade(name?: string, image?: string, imageVersion?: string): Promise<void> {
+        const service = this.config.getServiceOrDefault(name);
+
+        // service.
     }
 
     public async destroy(name?: string, force?: boolean): Promise<void> {
@@ -518,7 +519,7 @@ export class MariadbService {
             throw new Error("Service name required");
         }
 
-        const config = await this.getConfig();
+        const config = this.config;
 
         const service = config.getService(name);
 
@@ -579,34 +580,16 @@ export class MariadbService {
         await config.save();
     }
 
-    public async getDefault(): Promise<Service | null> {
-        const config = await this.getConfig();
-
-        return config.getDefaultService();
-    }
-
     public async setDefault(name: string): Promise<void> {
-        const config = await this.getConfig();
+        const service = this.config.getService(name);
 
-        if(!config.getService(name)) {
-            throw new Error(`Service "${name}" not found`);
-        }
+        this.config.default = service.name;
 
-        config.default = name;
-
-        await config.save();
+        await this.config.save();
     }
 
     public async mariadb(name?: string, database?: string): Promise<void> {
-        const config = await this.getConfig();
-        const service = name
-            ? config.getService(name)
-            : config.getDefaultService();
-
-        if(!service) {
-            throw new Error("Service not found");
-        }
-
+        const service = this.config.getServiceOrDefault(name);
         const container = await this.dockerService.getContainer(service.containerName);
 
         if(!container) {
@@ -664,15 +647,8 @@ export class MariadbService {
         await this.dockerService.attachStream(stream);
     }
 
-    public async backup(
-        name?: string,
-        database?: string,
-        filename?: string
-    ): Promise<void> {
-        const config = await this.getConfig();
-        const service = name
-            ? config.getService(name)
-            : config.getDefaultService();
+    public async backup(name?: string, database?: string, filename?: string): Promise<void> {
+        const service = this.config.getServiceOrDefault(name);
 
         if(!service) {
             throw new Error("Service not found");
@@ -754,10 +730,7 @@ export class MariadbService {
     }
 
     public async deleteBackup(name?: string, database?: string, filename?: string, confirm?: boolean): Promise<void> {
-        const config = await this.getConfig();
-        const service = name
-            ? config.getService(name)
-            : config.getDefaultService();
+        const service = this.config.getServiceOrDefault(name);
 
         if(!service) {
             throw new Error("Service not found");
@@ -805,15 +778,8 @@ export class MariadbService {
         return;
     }
 
-    public async restore(
-        name?: string,
-        database?: string,
-        filename?: string
-    ): Promise<void> {
-        const config = await this.getConfig();
-        const service = name
-            ? config.getService(name)
-            : config.getDefaultService();
+    public async restore(name?: string, database?: string, filename?: string): Promise<void> {
+        const service = this.config.getServiceOrDefault(name);
 
         if(!service) {
             throw new Error("Service not found");
@@ -894,7 +860,7 @@ export class MariadbService {
     }
 
     public async dump(name?: string, database?: string): Promise<void> {
-        const service = await this.getService(name);
+        const service = this.config.getServiceOrDefault(name);
         const container = await this.dockerService.getContainer(service.containerName);
 
         if(!container) {
@@ -945,29 +911,5 @@ export class MariadbService {
         });
 
         stream.pipe(process.stdout);
-    }
-
-    /**
-     * @deprecated
-     */
-    public getConfig(): Config {
-        return this.config;
-    }
-
-    public async getService(name?: string): Promise<Service> {
-        const config = await this.getConfig();
-        const service = name
-            ? config.getService(name)
-            : config.getDefaultService();
-
-        if(!service) {
-            throw new Error(
-                name
-                    ? `Service "${name}" not found`
-                    : "Default service not found"
-            );
-        }
-
-        return service;
     }
 }

@@ -1,4 +1,4 @@
-import {Config, ConfigProperties} from "@wocker/core";
+import {Config, ConfigProperties, EnvConfig} from "@wocker/core";
 
 
 export const STORAGE_FILESYSTEM = "filesystem";
@@ -17,6 +17,7 @@ export type ServiceProps = ConfigProperties & {
     volume?: string;
     image?: string;
     imageVersion?: string;
+    env?: EnvConfig;
 };
 
 export class Service extends Config<ServiceProps> {
@@ -29,6 +30,7 @@ export class Service extends Config<ServiceProps> {
     public volume?: string;
     public image?: string;
     public imageVersion?: string;
+    public env?: EnvConfig;
 
     public constructor(data: ServiceProps) {
         super(data);
@@ -43,7 +45,8 @@ export class Service extends Config<ServiceProps> {
             storage,
             volume,
             image,
-            imageVersion
+            imageVersion,
+            env
         } = data;
 
         this.host = host;
@@ -55,6 +58,7 @@ export class Service extends Config<ServiceProps> {
         this.volume = volume;
         this.image = image;
         this.imageVersion = imageVersion;
+        this.env = env;
 
         if(!host && !storage) {
             this.storage = STORAGE_FILESYSTEM;
