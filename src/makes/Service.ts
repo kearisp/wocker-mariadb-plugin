@@ -28,8 +28,8 @@ export class Service extends Config<ServiceProps> {
     public rootPassword?: string;
     public storage?: ServiceStorageType;
     public volume?: string;
-    public image?: string;
-    public imageVersion?: string;
+    public image: string;
+    public imageVersion: string;
     public env?: EnvConfig;
 
     public constructor(data: ServiceProps) {
@@ -44,8 +44,8 @@ export class Service extends Config<ServiceProps> {
             rootPassword,
             storage,
             volume,
-            image,
-            imageVersion,
+            image = "mariadb",
+            imageVersion = "latest",
             env
         } = data;
 

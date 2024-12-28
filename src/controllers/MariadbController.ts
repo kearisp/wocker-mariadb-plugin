@@ -133,6 +133,18 @@ export class MariadbController {
     public async upgrade(
         @Param("name")
         name?: string,
+        @Option("storage", {
+            type: "string",
+            alias: "s",
+            description: "Specify storage type"
+        })
+        storage?: ServiceStorageType,
+        @Option("volume", {
+            type: "string",
+            alias: "v",
+            description: "Specify volume name"
+        })
+        volume?: string,
         @Option("image", {
             type: "string",
             alias: "i"
@@ -144,7 +156,7 @@ export class MariadbController {
         })
         imageVersion?: string
     ): Promise<void> {
-        await this.mariadbService.upgrade(name, image, imageVersion);
+        await this.mariadbService.upgrade(name, storage, volume, image, imageVersion);
     }
 
     @Command("mariadb:use [service]")

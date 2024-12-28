@@ -266,7 +266,7 @@ export class MariadbService {
 
             container = await this.dockerService.createContainer({
                 name: service.containerName,
-                image: "mariadb:latest",
+                image: `${service.image}:${service.imageVersion}`,
                 restart: "always",
                 env: {
                     ...service.username ? {
@@ -282,10 +282,7 @@ export class MariadbService {
                         MARIADB_ROOT_PASSWORD: service.rootPassword
                     } : {}
                 },
-                volumes,
-                // aliases: [
-                //     service.containerName
-                // ]
+                volumes
             });
         }
 
@@ -508,8 +505,28 @@ export class MariadbService {
         await config.save();
     }
 
-    public async upgrade(name?: string, image?: string, imageVersion?: string): Promise<void> {
+    public async upgrade(name?: string, storage?: ServiceStorageType, volume?: string, image?: string, imageVersion?: string): Promise<void> {
         const service = this.config.getServiceOrDefault(name);
+
+        if(storage) {
+            if(![STORAGE_FILESYSTEM, STORAGE_VOLUME].includes(storage)) {
+                throw new Error("Invalid storage type");
+            }
+
+            service.storage = storage;
+        }
+
+        if(volume) {
+            service.volume = volume;
+        }
+
+        if(image) {
+            service.image = image;
+        }
+
+        if(imageVersion) {
+            service.imageVersion = imageVersion;
+        }
 
         // service.
     }
