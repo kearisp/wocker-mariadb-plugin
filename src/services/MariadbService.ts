@@ -18,7 +18,7 @@ import {Service, ServiceProps, ServiceStorageType, STORAGE_VOLUME, STORAGE_FILES
 
 @Injectable()
 export class MariadbService {
-    protected config?: Config;
+    protected _config?: Config;
 
     public constructor(
         protected readonly appConfigService: AppConfigService,
@@ -26,6 +26,26 @@ export class MariadbService {
         protected readonly dockerService: DockerService,
         protected readonly proxyService: ProxyService
     ) {}
+
+    public get configPath(): string {
+        return "config.json";
+    }
+
+    public get config(): Config {
+        if(!this._config) {
+            const _this = this,
+                fs = this.fs,
+                data: ConfigProps = fs.exists(this.configPath) ? fs.readJSON(this.configPath) : {};
+
+            this._config = new class extends Config {
+                public save(): void {
+                    fs.writeJSON(_this.configPath, this.toJSON());
+                }
+            }(data);
+        }
+
+        return this._config;
+    }
 
     public get fs(): FileSystem {
         let fs = this.pluginConfigService.fs;
@@ -37,12 +57,12 @@ export class MariadbService {
         return fs;
     }
 
-    public get dataFs(): FileSystem {
-        return new FileSystem(Path.join(__dirname, "../../data"));
-    }
-
     public get dbFs(): FileSystem {
         return new FileSystem(this.appConfigService.dataPath("db/mariadb"));
+    }
+
+    public get dataFs(): FileSystem {
+        return new FileSystem(Path.join(__dirname, "../../data"));
     }
 
     protected async query(service: Service, query: string): Promise<string | null> {
@@ -129,27 +149,24 @@ export class MariadbService {
         return this.fs.readdir(`dump/${service.name}/${database}`);
     }
 
-    public get configPath(): string {
-        return "config.json";
-    }
+    public async init(adminHostname?: string): Promise<void> {
+        const config = this.config;
 
-    public async init(rootPassword?: string): Promise<void> {
-        const config = await this.getConfig();
-
-        if(!rootPassword) {
-            rootPassword = await promptText({
-                message: "Root password:",
-                default: config.rootPassword
-            });
+        if(!adminHostname) {
+            adminHostname = await promptText({
+                message: "Admin hostname:",
+                required: true,
+                default: config.adminHostname
+            }) as string;
         }
 
-        config.rootPassword = rootPassword;
+        config.adminHostname = adminHostname;
 
         await config.save();
     }
 
     public async list(): Promise<string> {
-        const config = await this.getConfig();
+        const config = this.config;
 
         const table = new CliTable({
             head: ["Name", "Host", "User", "External", "Storage", "IP"]
@@ -190,10 +207,8 @@ export class MariadbService {
         return table.toString();
     }
 
-    public async getServices(): Promise<string[]> {
-        const config = await this.getConfig();
-
-        return (config.services || []).map((service) => {
+    public getServices(): string[] {
+        return (this.config.services || []).map((service) => {
             return service.name;
         });
     }
@@ -203,7 +218,7 @@ export class MariadbService {
     }
 
     public async start(name?: string, restart?: boolean): Promise<void> {
-        const service = await this.getService(name);
+        const service = this.config.getServiceOrDefault(name);
 
         if(service.host) {
             throw new Error("Service is external");
@@ -251,7 +266,7 @@ export class MariadbService {
 
             container = await this.dockerService.createContainer({
                 name: service.containerName,
-                image: "mariadb:latest",
+                image: `${service.image}:${service.imageVersion}`,
                 restart: "always",
                 env: {
                     ...service.username ? {
@@ -267,10 +282,7 @@ export class MariadbService {
                         MARIADB_ROOT_PASSWORD: service.rootPassword
                     } : {}
                 },
-                volumes,
-                // aliases: [
-                //     service.containerName
-                // ]
+                volumes
             });
         }
 
@@ -288,7 +300,7 @@ export class MariadbService {
     public async startAdmin(): Promise<void> {
         console.info("Phpmyadmin starting...");
 
-        const config = await this.getConfig();
+        const config = this.config;
 
         const servers: Service[] = [];
 
@@ -362,9 +374,7 @@ export class MariadbService {
                 restart: "always",
                 env: {
                     VIRTUAL_HOST: config.adminHostname,
-                    VIRTUAL_PORT: "80",
-                    PMA_USER: "root",
-                    PMA_PASSWORD: config.rootPassword || ""
+                    VIRTUAL_PORT: "80"
                 },
                 volumes: [
                     `${this.fs.path("config.user.inc.php")}:/etc/phpmyadmin/config.user.inc.php`,
@@ -396,7 +406,7 @@ export class MariadbService {
     }
 
     public async stop(name?: string): Promise<void> {
-        const config = await this.getConfig();
+        const config = this.config;
         const service = name
             ? config.getService(name)
             : config.getDefaultService();
@@ -411,7 +421,7 @@ export class MariadbService {
     }
 
     public async create(service: Partial<ServiceProps>): Promise<void> {
-        const config = await this.getConfig();
+        const config = this.config;
 
         if(service.name && config.getService(service.name)) {
             console.info(`Service "${service.name}" is already exists`);
@@ -495,12 +505,38 @@ export class MariadbService {
         await config.save();
     }
 
+    public async upgrade(name?: string, storage?: ServiceStorageType, volume?: string, image?: string, imageVersion?: string): Promise<void> {
+        const service = this.config.getServiceOrDefault(name);
+
+        if(storage) {
+            if(![STORAGE_FILESYSTEM, STORAGE_VOLUME].includes(storage)) {
+                throw new Error("Invalid storage type");
+            }
+
+            service.storage = storage;
+        }
+
+        if(volume) {
+            service.volume = volume;
+        }
+
+        if(image) {
+            service.image = image;
+        }
+
+        if(imageVersion) {
+            service.imageVersion = imageVersion;
+        }
+
+        // service.
+    }
+
     public async destroy(name?: string, force?: boolean): Promise<void> {
         if(!name) {
             throw new Error("Service name required");
         }
 
-        const config = await this.getConfig();
+        const config = this.config;
 
         const service = config.getService(name);
 
@@ -561,34 +597,16 @@ export class MariadbService {
         await config.save();
     }
 
-    public async getDefault(): Promise<Service | null> {
-        const config = await this.getConfig();
-
-        return config.getDefaultService();
-    }
-
     public async setDefault(name: string): Promise<void> {
-        const config = await this.getConfig();
+        const service = this.config.getService(name);
 
-        if(!config.getService(name)) {
-            throw new Error(`Service "${name}" not found`);
-        }
+        this.config.default = service.name;
 
-        config.default = name;
-
-        await config.save();
+        await this.config.save();
     }
 
     public async mariadb(name?: string, database?: string): Promise<void> {
-        const config = await this.getConfig();
-        const service = name
-            ? config.getService(name)
-            : config.getDefaultService();
-
-        if(!service) {
-            throw new Error("Service not found");
-        }
-
+        const service = this.config.getServiceOrDefault(name);
         const container = await this.dockerService.getContainer(service.containerName);
 
         if(!container) {
@@ -646,15 +664,8 @@ export class MariadbService {
         await this.dockerService.attachStream(stream);
     }
 
-    public async backup(
-        name?: string,
-        database?: string,
-        filename?: string
-    ): Promise<void> {
-        const config = await this.getConfig();
-        const service = name
-            ? config.getService(name)
-            : config.getDefaultService();
+    public async backup(name?: string, database?: string, filename?: string): Promise<void> {
+        const service = this.config.getServiceOrDefault(name);
 
         if(!service) {
             throw new Error("Service not found");
@@ -736,10 +747,7 @@ export class MariadbService {
     }
 
     public async deleteBackup(name?: string, database?: string, filename?: string, confirm?: boolean): Promise<void> {
-        const config = await this.getConfig();
-        const service = name
-            ? config.getService(name)
-            : config.getDefaultService();
+        const service = this.config.getServiceOrDefault(name);
 
         if(!service) {
             throw new Error("Service not found");
@@ -787,15 +795,8 @@ export class MariadbService {
         return;
     }
 
-    public async restore(
-        name?: string,
-        database?: string,
-        filename?: string
-    ): Promise<void> {
-        const config = await this.getConfig();
-        const service = name
-            ? config.getService(name)
-            : config.getDefaultService();
+    public async restore(name?: string, database?: string, filename?: string): Promise<void> {
+        const service = this.config.getServiceOrDefault(name);
 
         if(!service) {
             throw new Error("Service not found");
@@ -876,7 +877,7 @@ export class MariadbService {
     }
 
     public async dump(name?: string, database?: string): Promise<void> {
-        const service = await this.getService(name);
+        const service = this.config.getServiceOrDefault(name);
         const container = await this.dockerService.getContainer(service.containerName);
 
         if(!container) {
@@ -927,52 +928,5 @@ export class MariadbService {
         });
 
         stream.pipe(process.stdout);
-    }
-
-    public getConfig(): Config {
-        if(!this.config) {
-            const fs = this.fs;
-
-            let data: ConfigProps = !fs.exists(this.configPath)
-                ? {
-                    default: "default",
-                    services: [
-                        {
-                            name: "default",
-                            username: "root",
-                            password: "root",
-                            storage: "volume"
-                        }
-                    ]
-                }
-                : fs.readJSON(this.configPath);
-
-            const _this = this;
-
-            this.config = new class extends Config {
-                public async save(): Promise<void> {
-                    fs.writeJSON(_this.configPath, this.toJSON());
-                }
-            }(data);
-        }
-
-        return this.config;
-    }
-
-    public async getService(name?: string): Promise<Service> {
-        const config = await this.getConfig();
-        const service = name
-            ? config.getService(name)
-            : config.getDefaultService();
-
-        if(!service) {
-            throw new Error(
-                name
-                    ? `Service "${name}" not found`
-                    : "Default service not found"
-            );
-        }
-
-        return service;
     }
 }

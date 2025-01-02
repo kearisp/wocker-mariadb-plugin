@@ -1,4 +1,4 @@
-import {Config, ConfigProperties} from "@wocker/core";
+import {Config, ConfigProperties, EnvConfig} from "@wocker/core";
 
 
 export const STORAGE_FILESYSTEM = "filesystem";
@@ -15,6 +15,9 @@ export type ServiceProps = ConfigProperties & {
     rootPassword?: string;
     storage?: ServiceStorageType;
     volume?: string;
+    image?: string;
+    imageVersion?: string;
+    env?: EnvConfig;
 };
 
 export class Service extends Config<ServiceProps> {
@@ -25,6 +28,9 @@ export class Service extends Config<ServiceProps> {
     public rootPassword?: string;
     public storage?: ServiceStorageType;
     public volume?: string;
+    public image: string;
+    public imageVersion: string;
+    public env?: EnvConfig;
 
     public constructor(data: ServiceProps) {
         super(data);
@@ -37,7 +43,10 @@ export class Service extends Config<ServiceProps> {
             passwordHash,
             rootPassword,
             storage,
-            volume
+            volume,
+            image = "mariadb",
+            imageVersion = "latest",
+            env
         } = data;
 
         this.host = host;
@@ -47,6 +56,9 @@ export class Service extends Config<ServiceProps> {
         this.rootPassword = rootPassword || password;
         this.storage = storage;
         this.volume = volume;
+        this.image = image;
+        this.imageVersion = imageVersion;
+        this.env = env;
 
         if(!host && !storage) {
             this.storage = STORAGE_FILESYSTEM;
