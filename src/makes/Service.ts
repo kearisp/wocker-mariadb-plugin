@@ -16,6 +16,7 @@ export type ServiceProps = ConfigProperties & {
     storage?: ServiceStorageType;
     volume?: string;
     image?: string;
+    imageName?: string;
     imageVersion?: string;
     env?: EnvConfig;
 };
@@ -28,7 +29,7 @@ export class Service extends Config<ServiceProps> {
     public rootPassword?: string;
     public storage?: ServiceStorageType;
     public volume?: string;
-    public image: string;
+    public imageName: string;
     public imageVersion: string;
     public env?: EnvConfig;
 
@@ -44,7 +45,8 @@ export class Service extends Config<ServiceProps> {
             rootPassword,
             storage,
             volume,
-            image = "mariadb",
+            image,
+            imageName = image || "mariadb",
             imageVersion = "latest",
             env
         } = data;
@@ -56,13 +58,40 @@ export class Service extends Config<ServiceProps> {
         this.rootPassword = rootPassword || password;
         this.storage = storage;
         this.volume = volume;
-        this.image = image;
+        this.imageName = imageName;
         this.imageVersion = imageVersion;
         this.env = env;
 
         if(!host && !storage) {
             this.storage = STORAGE_FILESYSTEM;
         }
+    }
+
+    public get auth(): string[] {
+        const cmd: string[] = [];
+
+        if(!this.host) {
+            cmd.push("-uroot");
+
+            if(this.rootPassword) {
+                cmd.push(`-p${this.rootPassword}`);
+            }
+        }
+        else {
+            if(this.username) {
+                cmd.push(`-u${this.username}`);
+            }
+
+            if(this.password) {
+                cmd.push(`-p${this.password}`);
+            }
+        }
+
+        return cmd;
+    }
+
+    public get imageTag(): string {
+        return `${this.imageName}:${this.imageVersion}`;
     }
 
     public get containerName(): string {

@@ -156,7 +156,13 @@ export class MariadbController {
         })
         imageVersion?: string
     ): Promise<void> {
-        await this.mariadbService.upgrade(name, storage, volume, image, imageVersion);
+        await this.mariadbService.upgrade({
+            name,
+            storage,
+            volume,
+            image,
+            imageVersion
+        });
     }
 
     @Command("mariadb:use [service]")
