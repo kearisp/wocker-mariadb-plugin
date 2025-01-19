@@ -27,6 +27,14 @@ export abstract class Config {
         });
     }
 
+    public hasService(name: string): boolean {
+        const service = this.services.find((service) => {
+            return service.name === name;
+        });
+
+        return !!service;
+    }
+
     public getService(name: string): Service {
         const service = this.services.find((service) => {
             return service.name === name;
@@ -37,6 +45,14 @@ export abstract class Config {
         }
 
         return service;
+    }
+
+    public hasDefaultService(): boolean {
+        if(!this.default) {
+            return false;
+        }
+
+        return this.hasService(this.default);
     }
 
     public getDefaultService(): Service {
@@ -55,22 +71,45 @@ export abstract class Config {
         return this.getService(name);
     }
 
-    public setService(name: string, service: Omit<ServiceProps, "name">): void {
-        this.services = [
-            ...this.services.filter((service) => {
-                return service.name !== name;
-            }),
-            new Service({
-                ...service,
-                name
-            })
-        ];
+    public setService(service: Service): void {
+        let exists = false;
+
+        for(let i = 0; i < this.services.length; i++) {
+            if(this.services[i].name === service.name) {
+                exists = true;
+                this.services[i] = service;
+            }
+        }
+
+        if(!exists) {
+            this.services.push(service);
+        }
+
+        if(!this.default) {
+            this.default = service.name;
+        }
+    }
+
+    public updateService(name: string, service: Partial<ServiceProps>): void {
+        for(let i = 0; i < this.services.length; i++) {
+            if(this.services[i].name === name) {
+                this.services[i] = new Service({
+                    ...this.services[i].toObject(),
+                    ...service
+                });
+                break;
+            }
+        }
     }
 
     public unsetService(name: string): void {
         this.services = this.services.filter((service) => {
             return service.name !== name;
         });
+
+        if(this.default === name) {
+            delete this.default;
+        }
     }
 
     public abstract save(): void;
