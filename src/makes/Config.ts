@@ -106,6 +106,10 @@ export abstract class Config {
         this.services = this.services.filter((service) => {
             return service.name !== name;
         });
+
+        if(this.default === name) {
+            delete this.default;
+        }
     }
 
     public abstract save(): void;

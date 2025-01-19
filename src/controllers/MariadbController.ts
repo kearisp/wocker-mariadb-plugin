@@ -123,9 +123,15 @@ export class MariadbController {
             alias: "f",
             description: "Force deletion"
         })
-        force?: boolean
+        force?: boolean,
+        @Option("yes", {
+            type: "boolean",
+            alias: "y",
+            description: "Skip confirmation"
+        })
+        yes?: boolean
     ): Promise<void> {
-        await this.mariadbService.destroy(service, force);
+        await this.mariadbService.destroy(service, yes, force);
         await this.mariadbService.startAdmin();
     }
 
@@ -149,7 +155,7 @@ export class MariadbController {
             type: "string",
             alias: "i"
         })
-        image?: string,
+        imageName?: string,
         @Option("image-version", {
             type: "string",
             alias: "I"
@@ -160,7 +166,7 @@ export class MariadbController {
             name,
             storage,
             volume,
-            image,
+            imageName,
             imageVersion
         });
     }
@@ -172,7 +178,7 @@ export class MariadbController {
         service?: string
     ): Promise<string | undefined> {
         if(!service) {
-            const data = await this.mariadbService.config.getDefaultService();
+            const data = this.mariadbService.config.getDefaultService();
 
             return `${data.name}\n`;
         }

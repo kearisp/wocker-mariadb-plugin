@@ -502,24 +502,20 @@ export class MariadbService {
         this.config.save();
     }
 
-    public async destroy(name?: string, force?: boolean): Promise<void> {
+    public async destroy(name?: string, yes?: boolean, force?: boolean): Promise<void> {
         if(!name) {
             throw new Error("Service name required");
         }
 
-        const config = this.config;
+        const service = this.config.getService(name);
 
-        const service = config.getService(name);
-
-        if(!service) {
-            throw new Error(`Service ${name} not found`);
-        }
-
-        if(config.default === service.name) {
+        if(this.config.default === service.name) {
             if(!force) {
                 throw new Error("Can't destroy default service");
             }
+        }
 
+        if(!yes) {
             const confirm = await promptConfirm({
                 message: `Are you sure you want to delete the "${name}" database? This action cannot be undone and all data will be lost.`,
                 default: false
@@ -528,8 +524,6 @@ export class MariadbService {
             if(!confirm) {
                 throw new Error("Aborted");
             }
-
-            delete config.default;
         }
 
         if(!service.host) {
@@ -563,16 +557,14 @@ export class MariadbService {
             }
         }
 
-        config.unsetService(name);
-
-        config.save();
+        this.config.unsetService(name);
+        this.config.save();
     }
 
     public async setDefault(name: string): Promise<void> {
         const service = this.config.getService(name);
 
         this.config.default = service.name;
-
         this.config.save();
     }
 
