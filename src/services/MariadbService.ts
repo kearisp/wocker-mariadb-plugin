@@ -751,7 +751,7 @@ export class MariadbService {
             });
 
             file.on("error", reject);
-            file.on("end", resolve);
+            file.on("end", () => resolve(undefined));
 
             stream.on("data", (data: any): void => {
                 process.stdout.write(data);
