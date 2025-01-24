@@ -411,7 +411,7 @@ export class MariadbService {
                         return "Service name is required";
                     }
 
-                    if(this.config.getService(value)) {
+                    if(this.config.hasService(value)) {
                         return `Service "${value}" is already exists`;
                     }
 
