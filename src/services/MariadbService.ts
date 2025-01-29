@@ -38,7 +38,7 @@ export class MariadbService {
 
             this._config = new class extends Config {
                 public save(): void {
-                    fs.writeJSON(_this.configPath, this.toJSON());
+                    fs.writeJSON(_this.configPath, this.toObject());
                 }
             }(data);
         }

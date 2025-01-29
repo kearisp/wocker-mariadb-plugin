@@ -89,13 +89,19 @@ export class MariadbController {
             alias: "i",
             description: "The image name to start the service with"
         })
-        image?: string,
+        imageName?: string,
         @Option("image-version", {
             type: "string",
             alias: "I",
             description: "The image version to start the service with"
         })
-        imageVersion?: string
+        imageVersion?: string,
+        @Option("volume", {
+            type: "string",
+            alias: "v",
+            description: "Specify volume name"
+        })
+        volume?: string
     ): Promise<void> {
         await this.mariadbService.create({
             name,
@@ -104,8 +110,9 @@ export class MariadbController {
             rootPassword,
             host,
             storage,
-            image,
-            imageVersion
+            imageName,
+            imageVersion,
+            volume
         });
 
         if(host) {

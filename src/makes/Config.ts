@@ -114,7 +114,7 @@ export abstract class Config {
 
     public abstract save(): void;
 
-    public toJSON(): ConfigProps {
+    public toObject(): ConfigProps {
         return {
             adminHostname: this.adminHostname,
             default: this.default,
