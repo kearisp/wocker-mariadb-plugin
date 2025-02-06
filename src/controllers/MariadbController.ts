@@ -309,7 +309,7 @@ export class MariadbController {
         name?: string
     ): Promise<string[]> {
         try {
-            const service = await this.mariadbService.config.getServiceOrDefault(name);
+            const service = this.mariadbService.config.getServiceOrDefault(name);
 
             return await this.mariadbService.getDatabases(service);
         }
