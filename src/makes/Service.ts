@@ -122,6 +122,7 @@ export class Service {
             host: this.host,
             username: this.username,
             password: this.password,
+            passwordHash: this.passwordHash,
             rootPassword: this.rootPassword,
             storage: this.storage,
             volume: this._volume,
