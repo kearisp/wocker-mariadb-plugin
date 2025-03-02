@@ -1,4 +1,4 @@
-import {Config, ConfigProperties, EnvConfig} from "@wocker/core";
+import {EnvConfig} from "@wocker/core";
 
 
 export const STORAGE_FILESYSTEM = "filesystem";
@@ -6,7 +6,8 @@ export const STORAGE_VOLUME = "volume";
 
 export type ServiceStorageType = typeof STORAGE_FILESYSTEM | typeof STORAGE_VOLUME;
 
-export type ServiceProps = ConfigProperties & {
+export type ServiceProps = {
+    name: string;
     host?: string;
     user?: string;
     username?: string;
@@ -21,22 +22,22 @@ export type ServiceProps = ConfigProperties & {
     env?: EnvConfig;
 };
 
-export class Service extends Config<ServiceProps> {
+export class Service {
+    public name: string;
     public host?: string;
     public username?: string;
     public password?: string;
     public passwordHash?: string;
     public rootPassword?: string;
     public storage?: ServiceStorageType;
-    public volume?: string;
+    public _volume?: string;
     public imageName: string;
     public imageVersion: string;
     public env?: EnvConfig;
 
     public constructor(data: ServiceProps) {
-        super(data);
-
         const {
+            name,
             host,
             user,
             username,
@@ -51,13 +52,14 @@ export class Service extends Config<ServiceProps> {
             env
         } = data;
 
+        this.name = name;
         this.host = host;
         this.username = username || user;
         this.password = password;
         this.passwordHash = passwordHash;
         this.rootPassword = rootPassword || password;
         this.storage = storage;
-        this.volume = volume;
+        this._volume = volume;
         this.imageName = imageName;
         this.imageVersion = imageVersion;
         this.env = env;
@@ -98,15 +100,34 @@ export class Service extends Config<ServiceProps> {
         return `mariadb-${this.name}.ws`;
     }
 
-    public get volumeName(): string {
-        if(!this.volume) {
-            return this.defaultVolume;
+    public get volume(): string {
+        if(!this._volume) {
+            this._volume = this.defaultVolume;
         }
 
-        return this.volume;
+        return this._volume;
+    }
+
+    public set volume(volume: string) {
+        this._volume = volume;
     }
 
     public get defaultVolume(): string {
         return `wocker-mariadb-${this.name}`;
+    }
+
+    public toObject(): ServiceProps {
+        return {
+            name: this.name,
+            host: this.host,
+            username: this.username,
+            password: this.password,
+            rootPassword: this.rootPassword,
+            storage: this.storage,
+            volume: this._volume,
+            imageName: this.imageName,
+            imageVersion: this.imageVersion,
+            env: this.env
+        };
     }
 }
