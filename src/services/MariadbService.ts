@@ -1,18 +1,11 @@
-import {
-    Injectable,
-    AppConfigService,
-    ProxyService,
-    PluginConfigService,
-    DockerService,
-    FileSystem
-} from "@wocker/core";
+import {AppConfigService, DockerService, FileSystem, Injectable, PluginConfigService, ProxyService} from "@wocker/core";
 import {promptConfirm, promptSelect, promptText} from "@wocker/utils";
 import * as Path from "path";
 import CliTable from "cli-table3";
 import dateFormat from "date-fns/format";
 
 import {Config, ConfigProps} from "../makes/Config";
-import {Service, ServiceProps, ServiceStorageType, STORAGE_VOLUME, STORAGE_FILESYSTEM} from "../makes/Service";
+import {Service, ServiceProps, ServiceStorageType, STORAGE_FILESYSTEM, STORAGE_VOLUME} from "../makes/Service";
 
 
 @Injectable()
@@ -187,10 +180,6 @@ export class MariadbService {
         });
     }
 
-    public async services(): Promise<void> {
-        //
-    }
-
     public async start(name?: string, restart?: boolean): Promise<void> {
         if(!name && !this.config.hasDefaultService()) {
             await this.create();
@@ -202,7 +191,7 @@ export class MariadbService {
             throw new Error("Service is external");
         }
 
-        await this.dockerService.pullImage("mariadb:latest");
+        await this.dockerService.pullImage(service.imageTag);
 
         if(restart) {
             await this.dockerService.removeContainer(service.containerName);
@@ -216,20 +205,20 @@ export class MariadbService {
             const volumes: string[] = [];
 
             switch(service.storage) {
-                case "volume": {
+                case STORAGE_VOLUME: {
                     if(!this.pluginConfigService.isVersionGTE("1.0.19")) {
                         throw new Error("Please update wocker for using volume storage");
                     }
 
-                    if(!await this.dockerService.hasVolume(service.volumeName)) {
-                        await this.dockerService.createVolume(service.volumeName);
+                    if(!await this.dockerService.hasVolume(service.volume)) {
+                        await this.dockerService.createVolume(service.volume);
                     }
 
-                    volumes.push(`${service.volumeName}:/var/lib/mysql`);
+                    volumes.push(`${service.volume}:/var/lib/mysql`);
                     break;
                 }
 
-                case "filesystem":
+                case STORAGE_FILESYSTEM:
                 default: {
                     if(!this.dbFs.exists(service.name)) {
                         this.dbFs.mkdir(service.name, {
@@ -335,7 +324,7 @@ export class MariadbService {
             return res.join("\n");
         }).join("\n");
 
-        await this.fs.writeFile("config.user.inc.php", file);
+        this.fs.writeFile("config.user.inc.php", file);
         this.fs.mkdir("dump", {recursive: true});
         this.fs.mkdir("save", {recursive: true});
         this.fs.mkdir("upload", {recursive: true});
@@ -530,9 +519,9 @@ export class MariadbService {
             await this.dockerService.removeContainer(service.containerName);
 
             switch(service.storage) {
-                case "volume": {
-                    if(service.volumeName !== service.defaultVolume) {
-                        console.info(`Deletion of custom volume "${service.volumeName}" skipped.`);
+                case STORAGE_VOLUME: {
+                    if(service.volume !== service.defaultVolume) {
+                        console.info(`Deletion of custom volume "${service.volume}" skipped.`);
                         break;
                     }
 
@@ -540,13 +529,13 @@ export class MariadbService {
                         throw new Error("Please update wocker for using volume storage");
                     }
 
-                    if(await this.dockerService.hasVolume(service.volumeName)) {
-                        await this.dockerService.rmVolume(service.volumeName);
+                    if(await this.dockerService.hasVolume(service.volume)) {
+                        await this.dockerService.rmVolume(service.volume);
                     }
                     break;
                 }
 
-                case "filesystem":
+                case STORAGE_FILESYSTEM:
                 default: {
                     this.dbFs.rm(service.name, {
                         recursive: true,
