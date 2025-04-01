@@ -39,10 +39,12 @@ export class MariadbController {
     }
 
     @Command("mariadb:init")
+    @Description("Initializes the MariaDB configuration.")
     public async init(
         @Option("admin-hostname", {
             type: "string",
-            alias: "A"
+            alias: "A",
+            description: "Specifies the phpmyadmin hostname."
         })
         adminHostname?: string
     ): Promise<void> {
@@ -273,19 +275,20 @@ export class MariadbController {
     }
 
     @Command("mariadb:restore [service]")
+    @Description("Restores a MariaDB database from specified backup file.")
     public async restore(
         @Param("service")
         service?: string,
         @Option("database", {
             type: "string",
             alias: "d",
-            description: "Database name"
+            description: "The name of the database to restore"
         })
         database?: string,
         @Option("filename", {
             type: "string",
             alias: "f",
-            description: "File name"
+            description: "The name of the backup file to restore\n"
         })
         filename?: string
     ): Promise<void> {
@@ -294,6 +297,7 @@ export class MariadbController {
 
     @Command("mariadb:ls")
     @Command("mariadb:list")
+    @Description("Lists all MariaDB services.")
     public async list(): Promise<string> {
         return this.mariadbService.list();
     }
