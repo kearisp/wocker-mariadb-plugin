@@ -299,14 +299,14 @@ export class MariadbService {
         }
 
         let conf = this.dataFs.readFile("conf/config.user.inc.php");
-        let file = conf.toString() + servers.map((service) => {
+        let file = conf.toString() + servers.map((service, index) => {
             const host = service.host || service.containerName;
 
             const user = service.host ? service.username : "root";
             const password = service.host ? service.password : service.rootPassword;
 
             const res = [
-                `$i++;`,
+                index !== 0 ? `$i++;` : "",
                 `$cfg['Servers'][$i]['host'] = '${host}';`
             ];
 
