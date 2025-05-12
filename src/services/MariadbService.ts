@@ -1,9 +1,8 @@
 import {AppConfigService, DockerService, FileSystem, Injectable, PluginConfigService, ProxyService} from "@wocker/core";
-import {promptConfirm, promptSelect, promptText} from "@wocker/utils";
+import {promptInput, promptConfirm, promptSelect} from "@wocker/utils";
 import * as Path from "path";
 import CliTable from "cli-table3";
 import dateFormat from "date-fns/format";
-
 import {Config, ConfigProps} from "../makes/Config";
 import {Service, ServiceProps, ServiceStorageType, STORAGE_FILESYSTEM, STORAGE_VOLUME} from "../makes/Service";
 
@@ -120,8 +119,8 @@ export class MariadbService {
         const config = this.config;
 
         if(!adminHostname) {
-            adminHostname = await promptText({
-                message: "Admin hostname:",
+            adminHostname = await promptInput({
+                message: "Admin hostname",
                 required: true,
                 default: config.adminHostname
             }) as string;
@@ -300,14 +299,14 @@ export class MariadbService {
         }
 
         let conf = this.dataFs.readFile("conf/config.user.inc.php");
-        let file = conf.toString() + servers.map((service) => {
+        let file = conf.toString() + servers.map((service, index) => {
             const host = service.host || service.containerName;
 
             const user = service.host ? service.username : "root";
             const password = service.host ? service.password : service.rootPassword;
 
             const res = [
-                `$i++;`,
+                index !== 0 ? `$i++;` : "",
                 `$cfg['Servers'][$i]['host'] = '${host}';`
             ];
 
@@ -393,14 +392,11 @@ export class MariadbService {
         }
 
         if(!serviceProps.name) {
-            serviceProps.name = await promptText({
-                message: "Service name:",
+            serviceProps.name = await promptInput({
+                message: "Service name",
+                required: "Service name is required",
                 validate: (value?: string) => {
-                    if(!value) {
-                        return "Service name is required";
-                    }
-
-                    if(this.config.hasService(value)) {
+                    if(value && this.config.hasService(value)) {
                         return `Service "${value}" is already exists`;
                     }
 
@@ -410,21 +406,21 @@ export class MariadbService {
         }
 
         if(!serviceProps.username) {
-            serviceProps.username = await promptText({
-                message: "User:",
+            serviceProps.username = await promptInput({
+                message: "User",
                 required: true
             });
         }
 
         if(!serviceProps.password) {
-            serviceProps.password = await promptText({
-                message: "Password:",
+            serviceProps.password = await promptInput({
+                message: "Password",
                 type: "password",
                 required: true
             });
 
-            const confirmPassword = await promptText({
-                message: "Confirm password:",
+            const confirmPassword = await promptInput({
+                message: "Confirm password",
                 type: "password"
             });
 
@@ -435,14 +431,14 @@ export class MariadbService {
 
         if(!serviceProps.host) {
             if(!serviceProps.rootPassword && serviceProps.username !== "root") {
-                serviceProps.rootPassword = await promptText({
-                    message: "Root password:",
+                serviceProps.rootPassword = await promptInput({
+                    message: "Root password",
                     type: "password",
                     required: true
                 });
 
-                const confirmPassword = await promptText({
-                    message: "Confirm root password:",
+                const confirmPassword = await promptInput({
+                    message: "Confirm root password",
                     type: "password",
                     required: true
                 });
@@ -614,8 +610,8 @@ export class MariadbService {
         if(!filename) {
             const date = dateFormat(new Date(), "yyyy-MM-dd HH-mm");
 
-            filename = await promptText({
-                message: "File:",
+            filename = await promptInput({
+                message: "File",
                 default: date,
                 suffix: ".sql"
             });
