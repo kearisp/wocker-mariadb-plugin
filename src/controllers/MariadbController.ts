@@ -16,6 +16,7 @@ import {MariadbService} from "../services/MariadbService";
 
 
 @Controller()
+@Description("MariaDB commands")
 export class MariadbController {
     public constructor(
         protected readonly appConfigService: AppConfigService,
