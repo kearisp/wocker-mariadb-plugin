@@ -1,6 +1,6 @@
 {
     "name": "@wocker/mariadb-plugin",
-    "version": "1.0.19",
+    "version": "1.0.20",
     "author": "Kris Papercut <krispcut@gmail.com>",
     "description": "Mariadb plugin for wocker",
     "license": "MIT",
@@ -27,14 +27,14 @@
         "test": "echo \"Error: no test specified\" && exit 1"
     },
     "dependencies": {
-        "@wocker/core": "^1.0.22",
+        "@wocker/core": "^1.0.24",
         "@wocker/utils": "^2.0.3",
         "cli-table3": "^0.6.5",
-        "date-fns": "^2.30.0",
+        "date-fns": "^4.1.0",
         "path": "^0.12.7"
     },
     "devDependencies": {
-        "@types/node": "^22.15.17",
+        "@types/node": "^24.0.3",
         "typescript": "^5.8.3"
     }
 }
