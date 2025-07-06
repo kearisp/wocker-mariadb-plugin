@@ -25,8 +25,8 @@ export class MariadbService {
     public get config(): Config {
         if(!this._config) {
             const _this = this,
-                fs = this.fs,
-                data: ConfigProps = fs.exists(this.configPath) ? fs.readJSON(this.configPath) : {};
+                  fs = this.fs,
+                  data: ConfigProps = fs.exists(this.configPath) ? fs.readJSON(this.configPath) : {};
 
             this._config = new class extends Config {
                 public save(): void {
