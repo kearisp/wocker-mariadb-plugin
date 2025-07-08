@@ -20,6 +20,7 @@ export type ServiceProps = {
     imageName?: string;
     imageVersion?: string;
     env?: EnvConfig;
+    containerPort?: number;
 };
 
 export class Service {
@@ -34,6 +35,7 @@ export class Service {
     public imageName: string;
     public imageVersion: string;
     public env?: EnvConfig;
+    public containerPort?: number;
 
     public constructor(data: ServiceProps) {
         const {
@@ -49,7 +51,8 @@ export class Service {
             image,
             imageName = image || "mariadb",
             imageVersion = "latest",
-            env
+            env,
+            containerPort
         } = data;
 
         this.name = name;
@@ -63,6 +66,7 @@ export class Service {
         this.imageName = imageName;
         this.imageVersion = imageVersion;
         this.env = env;
+        this.containerPort = containerPort;
 
         if(!host && !storage) {
             this.storage = STORAGE_FILESYSTEM;
@@ -128,7 +132,8 @@ export class Service {
             volume: this._volume,
             imageName: this.imageName,
             imageVersion: this.imageVersion,
-            env: this.env
+            env: this.env,
+            containerPort: this.containerPort
         };
     }
 }

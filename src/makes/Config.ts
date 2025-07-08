@@ -1,5 +1,4 @@
 import {PickProperties} from "@wocker/core";
-
 import {Service, ServiceProps} from "./Service";
 
 
@@ -9,17 +8,20 @@ export type ConfigProps = Omit<PickProperties<Config>, "adminHostname" | "servic
 };
 
 export abstract class Config {
+    public enableAdmin?: boolean;
     public adminHostname: string;
     public default?: string;
     public services: Service[];
 
     public constructor(data: ConfigProps) {
         const {
+            enableAdmin,
             adminHostname,
             default: defaultService,
             services = []
         } = data;
 
+        this.enableAdmin = enableAdmin;
         this.adminHostname = adminHostname || "dbadmin-mariadb.workspace";
         this.default = defaultService;
         this.services = services.map((s) => {
@@ -116,6 +118,7 @@ export abstract class Config {
 
     public toObject(): ConfigProps {
         return {
+            enableAdmin: this.enableAdmin,
             adminHostname: this.adminHostname,
             default: this.default,
             services: this.services.length > 0 ? this.services.map((service) => {
