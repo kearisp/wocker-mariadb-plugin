@@ -26,7 +26,7 @@ export class MariadbService {
         if(!this._config) {
             const _this = this,
                   fs = this.fs,
-                  data: ConfigProps = fs.exists(this.configPath) ? fs.readJSON(this.configPath) : {};
+                  data: ConfigProps = fs.exists(this.configPath) ? fs.readJSON(this.configPath) : {enableAdmin: true};
 
             this._config = new class extends Config {
                 public save(): void {
@@ -267,6 +267,10 @@ export class MariadbService {
     }
 
     public async startAdmin(): Promise<void> {
+        if(!this.config.enableAdmin) {
+            return;
+        }
+
         console.info("Phpmyadmin starting...");
 
         const config = this.config;
