@@ -10,7 +10,6 @@ import {
     AppConfigService,
     DockerService
 } from "@wocker/core";
-
 import {ServiceStorageType} from "../makes/Service";
 import {MariadbService} from "../services/MariadbService";
 
@@ -104,7 +103,10 @@ export class MariadbController {
             alias: "v",
             description: "Specify volume name"
         })
-        volume?: string
+        volume?: string,
+        @Option("container-port")
+        @Description("Port on which the database container will be accessible on the host")
+        containerPort?: number
     ): Promise<void> {
         await this.mariadbService.create({
             name,
@@ -115,7 +117,8 @@ export class MariadbController {
             storage,
             imageName,
             imageVersion,
-            volume
+            volume,
+            containerPort
         });
 
         if(host) {
@@ -170,15 +173,33 @@ export class MariadbController {
             type: "string",
             alias: "I"
         })
-        imageVersion?: string
+        imageVersion?: string,
+        @Option("container-port")
+        @Description("Port on which the database container will be accessible on the host")
+        containerPort?: number,
+        @Option("enable-admin")
+        enableAdmin?: boolean,
+        @Option("disable-admin")
+        disableAdmin?: boolean
     ): Promise<void> {
         await this.mariadbService.upgrade({
             name,
             storage,
             volume,
             imageName,
-            imageVersion
+            imageVersion,
+            containerPort
         });
+
+        if(typeof enableAdmin !== "undefined") {
+            this.mariadbService.config.enableAdmin = true;
+            this.mariadbService.config.save();
+        }
+
+        if(typeof disableAdmin !== "undefined") {
+            this.mariadbService.config.enableAdmin = false;
+            this.mariadbService.config.save();
+        }
     }
 
     @Command("mariadb:use [service]")

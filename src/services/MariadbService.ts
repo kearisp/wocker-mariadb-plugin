@@ -26,7 +26,7 @@ export class MariadbService {
         if(!this._config) {
             const _this = this,
                   fs = this.fs,
-                  data: ConfigProps = fs.exists(this.configPath) ? fs.readJSON(this.configPath) : {};
+                  data: ConfigProps = fs.exists(this.configPath) ? fs.readJSON(this.configPath) : {enableAdmin: true};
 
             this._config = new class extends Config {
                 public save(): void {
@@ -43,7 +43,7 @@ export class MariadbService {
     }
 
     public get dbFs(): FileSystem {
-        return new FileSystem(this.appConfigService.dataPath("db/mariadb"));
+        return new FileSystem(this.appConfigService.fs.path("db/mariadb"));
     }
 
     public get dataFs(): FileSystem {
@@ -248,7 +248,10 @@ export class MariadbService {
                         MARIADB_ROOT_PASSWORD: service.rootPassword
                     } : {}
                 },
-                volumes
+                volumes,
+                ports: service.containerPort
+                    ? [`${service.containerPort}:3306`]
+                    : undefined
             });
         }
 
@@ -264,6 +267,10 @@ export class MariadbService {
     }
 
     public async startAdmin(): Promise<void> {
+        if(!this.config.enableAdmin) {
+            return;
+        }
+
         console.info("Phpmyadmin starting...");
 
         const config = this.config;
@@ -454,6 +461,23 @@ export class MariadbService {
                     options: [STORAGE_VOLUME, STORAGE_FILESYSTEM]
                 });
             }
+
+            if(!serviceProps.containerPort) {
+                const needPort = await promptConfirm({
+                    message: "Do you need to expose container port?",
+                    default: false
+                });
+
+                if(needPort) {
+                    serviceProps.containerPort = await promptInput({
+                        required: true,
+                        message: "Container port:",
+                        type: "number",
+                        min: 1,
+                        default: 3306
+                    });
+                }
+            }
         }
 
         this.config.setService(new Service(serviceProps as ServiceProps));
@@ -481,6 +505,10 @@ export class MariadbService {
 
         if(serviceProps.imageVersion) {
             service.imageVersion = serviceProps.imageVersion;
+        }
+
+        if(serviceProps.containerPort) {
+            service.containerPort = serviceProps.containerPort;
         }
 
         this.config.setService(service);
