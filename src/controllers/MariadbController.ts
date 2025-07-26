@@ -192,12 +192,12 @@ export class MariadbController {
         });
 
         if(typeof enableAdmin !== "undefined") {
-            this.mariadbService.config.enableAdmin = true;
+            this.mariadbService.config.admin.enabled = true;
             this.mariadbService.config.save();
         }
 
         if(typeof disableAdmin !== "undefined") {
-            this.mariadbService.config.enableAdmin = false;
+            this.mariadbService.config.admin.enabled = false;
             this.mariadbService.config.save();
         }
     }
