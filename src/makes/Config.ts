@@ -1,29 +1,40 @@
-import {PickProperties} from "@wocker/core";
+import {FileSystem, PickProperties} from "@wocker/core";
 import {Service, ServiceProps} from "./Service";
 
 
-export type ConfigProps = Omit<PickProperties<Config>, "adminHostname" | "services"> & {
+type AdminConfig = {
+    enabled?: boolean;
+    hostname: string;
+};
+
+export type ConfigProps = Omit<PickProperties<Config>, "services"> & {
+    enableAdmin?: boolean;
     adminHostname?: string;
     services?: ServiceProps[];
 };
 
 export abstract class Config {
-    public enableAdmin?: boolean;
-    public adminHostname: string;
     public default?: string;
+    public admin: AdminConfig;
     public services: Service[];
 
     public constructor(data: ConfigProps) {
         const {
+            default: defaultService,
             enableAdmin,
             adminHostname,
-            default: defaultService,
+            admin = {
+                enabled: enableAdmin,
+                hostname: adminHostname || "dbadmin-mariadb.workspace"
+            },
             services = []
         } = data;
 
-        this.enableAdmin = enableAdmin;
-        this.adminHostname = adminHostname || "dbadmin-mariadb.workspace";
         this.default = defaultService;
+        this.admin = {
+            enabled: admin.enabled ?? false,
+            hostname: admin.hostname ?? "dbadmin-mariadb.workspace"
+        };
         this.services = services.map((s) => {
             return new Service(s);
         });
@@ -118,12 +129,27 @@ export abstract class Config {
 
     public toObject(): ConfigProps {
         return {
-            enableAdmin: this.enableAdmin,
-            adminHostname: this.adminHostname,
             default: this.default,
+            admin: this.admin,
             services: this.services.length > 0 ? this.services.map((service) => {
                 return service.toObject();
             }) : undefined
         };
+    }
+
+    public static make(fs: FileSystem, configPath: string): Config {
+        const data: ConfigProps = fs.exists(configPath)
+            ? fs.readJSON(configPath)
+            : {
+                admin: {
+                    enabled: true
+                }
+            };
+
+        return new class extends Config {
+            public save(): void {
+                fs.writeJSON(configPath, this.toObject());
+            }
+        }(data);
     }
 }

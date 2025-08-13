@@ -3,7 +3,7 @@ import {promptInput, promptConfirm, promptSelect} from "@wocker/utils";
 import * as Path from "path";
 import CliTable from "cli-table3";
 import {format as dateFormat} from "date-fns/format";
-import {Config, ConfigProps} from "../makes/Config";
+import {Config} from "../makes/Config";
 import {Service, ServiceProps, ServiceStorageType, STORAGE_FILESYSTEM, STORAGE_VOLUME} from "../makes/Service";
 
 
@@ -24,15 +24,10 @@ export class MariadbService {
 
     public get config(): Config {
         if(!this._config) {
-            const _this = this,
-                  fs = this.fs,
-                  data: ConfigProps = fs.exists(this.configPath) ? fs.readJSON(this.configPath) : {enableAdmin: true};
-
-            this._config = new class extends Config {
-                public save(): void {
-                    fs.writeJSON(_this.configPath, this.toObject());
-                }
-            }(data);
+            this._config = Config.make(
+                this.fs,
+                this.configPath
+            );
         }
 
         return this._config;
@@ -122,11 +117,11 @@ export class MariadbService {
             adminHostname = await promptInput({
                 message: "Admin hostname",
                 required: true,
-                default: config.adminHostname
+                default: config.admin.hostname
             }) as string;
         }
 
-        config.adminHostname = adminHostname;
+        config.admin.hostname = adminHostname;
 
         config.save();
     }
@@ -267,7 +262,7 @@ export class MariadbService {
     }
 
     public async startAdmin(): Promise<void> {
-        if(!this.config.enableAdmin) {
+        if(!this.config.admin.enabled) {
             return;
         }
 
@@ -291,7 +286,7 @@ export class MariadbService {
             servers.push(service);
         }
 
-        await this.dockerService.removeContainer(config.adminHostname);
+        await this.dockerService.removeContainer(config.admin.hostname);
 
         if(servers.length === 0) {
             return;
@@ -335,17 +330,17 @@ export class MariadbService {
         this.fs.mkdir("save", {recursive: true});
         this.fs.mkdir("upload", {recursive: true});
 
-        let container = await this.dockerService.getContainer(config.adminHostname);
+        let container = await this.dockerService.getContainer(config.admin.hostname);
 
         if(!container) {
             await this.dockerService.pullImage("phpmyadmin/phpmyadmin:latest");
 
             container = await this.dockerService.createContainer({
-                name: config.adminHostname,
+                name: config.admin.hostname,
                 image: "phpmyadmin/phpmyadmin:latest",
                 restart: "always",
                 env: {
-                    VIRTUAL_HOST: config.adminHostname,
+                    VIRTUAL_HOST: config.admin.hostname,
                     VIRTUAL_PORT: "80"
                 },
                 volumes: [
@@ -364,7 +359,7 @@ export class MariadbService {
 
         if(!Running) {
             await container.start();
-            await this.dockerService.exec(config.adminHostname, [
+            await this.dockerService.exec(config.admin.hostname, [
                 "bash", "-c",
                 [
                     "apt-get update",
