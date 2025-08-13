@@ -1,4 +1,4 @@
-import {PickProperties} from "@wocker/core";
+import {FileSystem, PickProperties} from "@wocker/core";
 import {Service, ServiceProps} from "./Service";
 
 
@@ -135,5 +135,21 @@ export abstract class Config {
                 return service.toObject();
             }) : undefined
         };
+    }
+
+    public static make(fs: FileSystem, configPath: string): Config {
+        const data: ConfigProps = fs.exists(configPath)
+            ? fs.readJSON(configPath)
+            : {
+                admin: {
+                    enabled: true
+                }
+            };
+
+        return new class extends Config {
+            public save(): void {
+                fs.writeJSON(configPath, this.toObject());
+            }
+        }(data);
     }
 }

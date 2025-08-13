@@ -3,7 +3,7 @@ import {promptInput, promptConfirm, promptSelect} from "@wocker/utils";
 import * as Path from "path";
 import CliTable from "cli-table3";
 import {format as dateFormat} from "date-fns/format";
-import {Config, ConfigProps} from "../makes/Config";
+import {Config} from "../makes/Config";
 import {Service, ServiceProps, ServiceStorageType, STORAGE_FILESYSTEM, STORAGE_VOLUME} from "../makes/Service";
 
 
@@ -24,15 +24,10 @@ export class MariadbService {
 
     public get config(): Config {
         if(!this._config) {
-            const _this = this,
-                  fs = this.fs,
-                  data: ConfigProps = fs.exists(this.configPath) ? fs.readJSON(this.configPath) : {enableAdmin: true};
-
-            this._config = new class extends Config {
-                public save(): void {
-                    fs.writeJSON(_this.configPath, this.toObject());
-                }
-            }(data);
+            this._config = Config.make(
+                this.fs,
+                this.configPath
+            );
         }
 
         return this._config;
