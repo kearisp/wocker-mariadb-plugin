@@ -185,7 +185,7 @@ export class MariadbService {
             throw new Error("Service is external");
         }
 
-        await this.dockerService.pullImage(service.imageTag);
+        await this.dockerService.pullImage(service.image);
 
         if(restart) {
             await this.dockerService.removeContainer(service.containerName);
@@ -227,7 +227,7 @@ export class MariadbService {
 
             container = await this.dockerService.createContainer({
                 name: service.containerName,
-                image: service.imageTag,
+                image: service.image,
                 restart: "always",
                 env: {
                     ...service.username ? {
@@ -494,12 +494,8 @@ export class MariadbService {
             service.volume = serviceProps.volume;
         }
 
-        if(serviceProps.imageName) {
-            service.imageName = serviceProps.imageName;
-        }
-
-        if(serviceProps.imageVersion) {
-            service.imageVersion = serviceProps.imageVersion;
+        if(serviceProps.image) {
+            service.image = serviceProps.image;
         }
 
         if(serviceProps.containerPort) {
