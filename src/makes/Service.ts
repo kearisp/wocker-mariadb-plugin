@@ -1,4 +1,5 @@
 import {EnvConfig} from "@wocker/core";
+import {Image} from "@wocker/utils";
 
 
 export const STORAGE_FILESYSTEM = "filesystem";
@@ -17,7 +18,9 @@ export type ServiceProps = {
     storage?: ServiceStorageType;
     volume?: string;
     image?: string;
+    /** @deprecated */
     imageName?: string;
+    /** @deprecated */
     imageVersion?: string;
     env?: EnvConfig;
     containerPort?: number;
@@ -32,8 +35,7 @@ export class Service {
     public rootPassword?: string;
     public storage?: ServiceStorageType;
     public _volume?: string;
-    public imageName: string;
-    public imageVersion: string;
+    protected _image?: string;
     public env?: EnvConfig;
     public containerPort?: number;
 
@@ -63,8 +65,7 @@ export class Service {
         this.rootPassword = rootPassword || password;
         this.storage = storage;
         this._volume = volume;
-        this.imageName = imageName;
-        this.imageVersion = imageVersion;
+        this._image = image ? image : imageName ? new Image(imageName, imageVersion).toString() : undefined;
         this.env = env;
         this.containerPort = containerPort;
 
@@ -96,12 +97,29 @@ export class Service {
         return cmd;
     }
 
-    public get imageTag(): string {
-        return `${this.imageName}:${this.imageVersion}`;
-    }
-
     public get containerName(): string {
         return `mariadb-${this.name}.ws`;
+    }
+
+    public get image(): string {
+        if(!this._image) {
+            return "mariadb:latest";
+        }
+
+        return this._image;
+    }
+
+    public set image(image: string | undefined) {
+        if(!image) {
+            delete this._image;
+            return;
+        }
+
+        if(Image.isValid(image)) {
+            throw new Error(`Invalid image ${image}`);
+        }
+
+        this._image = image;
     }
 
     public get volume(): string {
@@ -130,8 +148,7 @@ export class Service {
             rootPassword: this.rootPassword,
             storage: this.storage,
             volume: this._volume,
-            imageName: this.imageName,
-            imageVersion: this.imageVersion,
+            image: this._image,
             env: this.env,
             containerPort: this.containerPort
         };

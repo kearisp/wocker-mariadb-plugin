@@ -91,13 +91,7 @@ export class MariadbController {
             alias: "i",
             description: "The image name to start the service with"
         })
-        imageName?: string,
-        @Option("image-version", {
-            type: "string",
-            alias: "I",
-            description: "The image version to start the service with"
-        })
-        imageVersion?: string,
+        image?: string,
         @Option("volume", {
             type: "string",
             alias: "v",
@@ -115,8 +109,7 @@ export class MariadbController {
             rootPassword,
             host,
             storage,
-            imageName,
-            imageVersion,
+            image,
             volume,
             containerPort
         });
