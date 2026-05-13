@@ -115,7 +115,7 @@ export class Service {
             return;
         }
 
-        if(Image.isValid(image)) {
+        if(!Image.isValid(image)) {
             throw new Error(`Invalid image ${image}`);
         }
 

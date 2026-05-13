@@ -161,12 +161,7 @@ export class MariadbController {
             type: "string",
             alias: "i"
         })
-        imageName?: string,
-        @Option("image-version", {
-            type: "string",
-            alias: "I"
-        })
-        imageVersion?: string,
+        image?: string,
         @Option("container-port")
         @Description("Port on which the database container will be accessible on the host")
         containerPort?: number,
@@ -179,8 +174,7 @@ export class MariadbController {
             name,
             storage,
             volume,
-            imageName,
-            imageVersion,
+            image,
             containerPort
         });
 
