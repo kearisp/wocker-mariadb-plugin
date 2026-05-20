@@ -130,7 +130,7 @@ export class MariadbService {
         const config = this.config;
 
         const table = new CliTable({
-            head: ["Name", "Host", "User", "External", "Storage", "IP"]
+            head: ["Name", "Image", "Host", "User", "External", "Storage", "IP"]
         });
 
         for(const service of config.services) {
@@ -157,6 +157,7 @@ export class MariadbService {
 
             table.push([
                 service.name + (config.default === service.name ? " (default)" : ""),
+                !service.host ? service.image : "",
                 service.host ? service.host : service.containerName,
                 service.username,
                 !!service.host,
