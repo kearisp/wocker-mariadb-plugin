@@ -1,5 +1,5 @@
 import {AppConfigService, DockerService, FileSystem, Injectable, PluginConfigService, ProxyService} from "@wocker/core";
-import {promptInput, promptConfirm, promptSelect} from "@wocker/utils";
+import {promptInput, promptConfirm, promptSelect} from "@wocker/prompts";
 import * as Path from "path";
 import CliTable from "cli-table3";
 import {format as dateFormat} from "date-fns/format";
@@ -18,16 +18,9 @@ export class MariadbService {
         protected readonly proxyService: ProxyService
     ) {}
 
-    public get configPath(): string {
-        return "config.json";
-    }
-
     public get config(): Config {
         if(!this._config) {
-            this._config = Config.make(
-                this.fs,
-                this.configPath
-            );
+            this._config = this.pluginConfigService.getConfig(Config);
         }
 
         return this._config;

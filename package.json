@@ -1,7 +1,7 @@
 {
     "name": "@wocker/mariadb-plugin",
     "type": "commonjs",
-    "version": "1.0.24",
+    "version": "1.0.25",
     "author": "Kris Papercut <krispcut@gmail.com>",
     "description": "Mariadb plugin for wocker",
     "license": "MIT",
@@ -29,6 +29,7 @@
     },
     "dependencies": {
         "@wocker/core": "^1.0.24",
+        "@wocker/prompts": "^1.0.0",
         "@wocker/utils": "^2.0.11",
         "cli-table3": "^0.6.5",
         "date-fns": "^4.1.0",
