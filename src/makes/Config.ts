@@ -1,4 +1,4 @@
-import {FileSystem, PickProperties} from "@wocker/core";
+import {PickProperties, PluginConfig} from "@wocker/core";
 import {Service, ServiceProps} from "./Service";
 
 
@@ -13,12 +13,14 @@ export type ConfigProps = Omit<PickProperties<Config>, "services"> & {
     services?: ServiceProps[];
 };
 
-export abstract class Config {
+export class Config extends PluginConfig{
     public default?: string;
     public admin: AdminConfig;
     public services: Service[];
 
     public constructor(data: ConfigProps) {
+        super(data);
+
         const {
             default: defaultService,
             enableAdmin,
@@ -125,8 +127,6 @@ export abstract class Config {
         }
     }
 
-    public abstract save(): void;
-
     public toObject(): ConfigProps {
         return {
             default: this.default,
@@ -135,21 +135,5 @@ export abstract class Config {
                 return service.toObject();
             }) : undefined
         };
-    }
-
-    public static make(fs: FileSystem, configPath: string): Config {
-        const data: ConfigProps = fs.exists(configPath)
-            ? fs.readJSON(configPath)
-            : {
-                admin: {
-                    enabled: true
-                }
-            };
-
-        return new class extends Config {
-            public save(): void {
-                fs.writeJSON(configPath, this.toObject());
-            }
-        }(data);
     }
 }
