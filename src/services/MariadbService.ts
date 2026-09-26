@@ -223,6 +223,7 @@ export class MariadbService {
                 name: service.containerName,
                 image: service.image,
                 restart: "always",
+                internal: true,
                 env: {
                     ...service.username ? {
                         MARIADB_USER: service.username
@@ -333,6 +334,7 @@ export class MariadbService {
                 name: config.admin.hostname,
                 image: "phpmyadmin/phpmyadmin:latest",
                 restart: "always",
+                internal: true,
                 env: {
                     VIRTUAL_HOST: config.admin.hostname,
                     VIRTUAL_PORT: "80"
