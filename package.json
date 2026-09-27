@@ -29,8 +29,8 @@
     },
     "dependencies": {
         "@wocker/core": "^1.0.24",
+        "@wocker/helpers": "^1.0.0",
         "@wocker/prompts": "^1.0.0",
-        "@wocker/utils": "^2.0.11",
         "cli-table3": "^0.6.5",
         "date-fns": "^4.1.0",
         "path": "^0.12.7"
