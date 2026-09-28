@@ -1,5 +1,5 @@
 import {EnvConfig} from "@wocker/core";
-import {Image} from "@wocker/utils";
+import {Image} from "@wocker/helpers";
 
 
 export const STORAGE_FILESYSTEM = "filesystem";
