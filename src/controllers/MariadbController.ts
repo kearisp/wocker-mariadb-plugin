@@ -86,11 +86,8 @@ export class MariadbController {
             description: "Storage type"
         })
         storage?: ServiceStorageType,
-        @Option("image", {
-            type: "string",
-            alias: "i",
-            description: "The image name to start the service with"
-        })
+        @Option("image", "i")
+        @Description("The image name to start the service with")
         image?: string,
         @Option("volume", {
             type: "string",
@@ -157,10 +154,8 @@ export class MariadbController {
             description: "Specify volume name"
         })
         volume?: string,
-        @Option("image", {
-            type: "string",
-            alias: "i"
-        })
+        @Option("image", "i")
+        @Description("The image name to start the service with")
         image?: string,
         @Option("container-port")
         @Description("Port on which the database container will be accessible on the host")
